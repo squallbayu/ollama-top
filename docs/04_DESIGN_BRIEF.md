@@ -12,6 +12,10 @@
 - **Zero Layout Jitter**: Menu bar telemetry and numeric readouts strictly use monospaced digits (`monospacedDigitSystemFont` and `.design(.monospaced)`) so the menu bar item never shifts neighboring icons as numbers change.
 - **Semantic State Signaling**: Color is reserved exclusively for actionable hardware state—green for healthy/idle, purple-pink gradient for active Metal GPU tensor residency, amber for memory warning, and crimson for memory critical / destructive VRAM eviction.
 
+<p align="center">
+  <img src="assets/ollama-top-menubar.jpg" width="390" alt="OllamaTop UI Reference" />
+</p>
+
 ---
 
 ## 🌈 2. Semantic Color Tokens

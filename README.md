@@ -9,6 +9,15 @@
 
 Built specifically for **Apple Silicon (M1 / M2 / M3 / M4 / M5)** Unified Memory workflows—operating **100% in user space (`sudo`-free)** with **`0.0%` background CPU overhead**.
 
+<p align="center">
+  <a href="docs/assets/ollama-top-menubar.jpg">
+    <img src="docs/assets/ollama-top-menubar.jpg" width="420" alt="OllamaTop macOS Menu Bar Widget Screenshot" />
+  </a>
+</p>
+<p align="center">
+  <em><b>OllamaTop in action on Apple M5 Pro:</b> Live menu bar pill (<code>Qwen 8.5G</code>), active Metal GPU residency (<code>qwen2.5-coder:14b</code> at <code>8.48 GB VRAM</code> with one-click <code>Unload VRAM</code>), Unified Memory pressure tracking (<code>20.8 / 24.0 GB</code>), real-time inference speeds (<code>27.89 tok/s</code> eval &amp; <code>679.91 tok/s</code> prompt ingest), and instant GGUF model switching.</em>
+</p>
+
 ---
 
 ## ✨ Key Features
