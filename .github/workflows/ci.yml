@@ -1,0 +1,45 @@
+name: CI Build & Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  macos-universal-build:
+    name: Build Universal macOS App & CLI
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check Swift & Python Versions
+        run: |
+          swiftc --version
+          python3 --version
+
+      - name: Build Universal Release Package
+        run: |
+          chmod +x scripts/build.sh cli/ollama-top
+          ./scripts/build.sh --universal --package --version "0.0.0-ci.${GITHUB_SHA::7}"
+
+      - name: Verify Universal Binary & CLI
+        run: |
+          lipo -info dist/OllamaTop.app/Contents/MacOS/OllamaTop
+          codesign --verify --deep --strict dist/OllamaTop.app
+          python3 -m py_compile cli/ollama-top
+          ./dist/ollama-top --help
+          ./dist/ollama-top --once
+
+      - name: Upload Public Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OllamaTop-macos-universal
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt

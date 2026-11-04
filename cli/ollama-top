@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Bayu Sanjaya <https://github.com/squallbayu/ollama-top>
+"""
+ollama-top: Live Terminal Dashboard for Ollama & Apple Silicon Unified Memory.
+Zero-dependency, zero-root user-space CLI monitor.
+"""
+
+import argparse
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+
+API_URL = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+if not API_URL.startswith("http"):
+    API_URL = f"http://{API_URL}"
+
+# ANSI styling helpers
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+BLUE = "\033[34m"
+MAGENTA = "\033[35m"
+CYAN = "\033[36m"
+WHITE = "\033[37m"
+CLEAR_SCREEN = "\033[2J\033[H"
+HIDE_CURSOR = "\033[?25l"
+SHOW_CURSOR = "\033[?25h"
+
+
+def fetch_api(endpoint: str):
+    """Fetch JSON from Ollama HTTP API."""
+    try:
+        url = f"{API_URL}{endpoint}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ollama-top-cli"})
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            if resp.status == 200:
+                return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+    return None
+
+
+def resolve_log_file() -> str:
+    """Discover the active Ollama daemon log file across standard & custom setups."""
+    custom = os.environ.get("OLLAMA_LOG_PATH", "").strip()
+    if custom and os.path.exists(os.path.expanduser(custom)):
+        return os.path.expanduser(custom)
+
+    candidates = [
+        os.path.expanduser("~/.ollama/logs/server.log"),
+        os.path.expanduser("~/.gemini/ollama_daemon.log"),
+        "/opt/homebrew/var/log/ollama.log",
+        "/usr/local/var/log/ollama.log",
+    ]
+    existing = [p for p in candidates if os.path.exists(p)]
+    if not existing:
+        return candidates[0]
+    return max(existing, key=lambda p: os.path.getmtime(p))
+
+
+def get_hardware_info():
+    """Retrieve static Mac hardware specs dynamically."""
+    hw = {
+        "chip": "Apple Silicon",
+        "cores": "Multi-Core CPU",
+        "gpu": "Metal Hardware GPU",
+        "os": "macOS",
+        "disk_free": "NVMe Ready",
+    }
+    try:
+        brand = subprocess.check_output(
+            ["sysctl", "-n", "machdep.cpu.brand_string"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if brand:
+            hw["chip"] = brand
+    except Exception:
+        pass
+
+    try:
+        ncpu = int(
+            subprocess.check_output(["sysctl", "-n", "hw.ncpu"], text=True, stderr=subprocess.DEVNULL).strip()
+        )
+        try:
+            p_cores = int(
+                subprocess.check_output(
+                    ["sysctl", "-n", "hw.perflevel0.physicalcpu"], text=True, stderr=subprocess.DEVNULL
+                ).strip()
+            )
+            e_cores = int(
+                subprocess.check_output(
+                    ["sysctl", "-n", "hw.perflevel1.physicalcpu"], text=True, stderr=subprocess.DEVNULL
+                ).strip()
+            )
+            if p_cores + e_cores == ncpu:
+                hw["cores"] = f"{ncpu} Cores ({p_cores}P + {e_cores}E)"
+            else:
+                hw["cores"] = f"{ncpu} CPU Cores"
+        except Exception:
+            hw["cores"] = f"{ncpu} CPU Cores"
+    except Exception:
+        pass
+
+    try:
+        ioreg = subprocess.check_output(
+            ["/usr/sbin/ioreg", "-rc", "AGXAccelerator", "-d", "1"], text=True, stderr=subprocess.DEVNULL
+        )
+        m_gpu = re.search(r'"gpu-core-count"\s*=\s*(\d+)', ioreg)
+        if m_gpu:
+            hw["gpu"] = f"{m_gpu.group(1)}-Core Metal GPU"
+    except Exception:
+        pass
+
+    try:
+        sw = subprocess.check_output(["sw_vers", "-productVersion"], text=True, stderr=subprocess.DEVNULL).strip()
+        hw["os"] = f"macOS {sw}"
+    except Exception:
+        pass
+
+    try:
+        st = os.statvfs(os.path.expanduser("~"))
+        free_tb = (st.f_bavail * st.f_frsize) / (1000**4)
+        total_tb = (st.f_blocks * st.f_frsize) / (1000**4)
+        if total_tb >= 1.0:
+            hw["disk_free"] = f"{free_tb:.2f} TB free ({total_tb:.1f} TB total)"
+        else:
+            free_gb = (st.f_bavail * st.f_frsize) / (1000**3)
+            total_gb = (st.f_blocks * st.f_frsize) / (1000**3)
+            hw["disk_free"] = f"{free_gb:.0f} GB free ({total_gb:.0f} GB total)"
+    except Exception:
+        pass
+
+    return hw
+
+
+def get_system_memory():
+    """Retrieve macOS unified memory stats via vm_stat and sysctl."""
+    stats = {"total_gb": 16.0, "used_gb": 0.0, "free_gb": 16.0, "pressure": "Normal"}
+    try:
+        out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True, stderr=subprocess.DEVNULL).strip()
+        total_bytes = int(out)
+        stats["total_gb"] = round(total_bytes / (1024**3), 1)
+
+        vm_out = subprocess.check_output(["vm_stat"], text=True, stderr=subprocess.DEVNULL)
+        page_size = 16384
+        m_page = re.search(r"page size of (\d+) bytes", vm_out)
+        if m_page:
+            page_size = int(m_page.group(1))
+
+        active_pages = 0
+        wired_pages = 0
+        compressed_pages = 0
+
+        for line in vm_out.splitlines():
+            if "Pages active:" in line:
+                active_pages = int(re.search(r"\d+", line).group(0))
+            elif "Pages wired down:" in line:
+                wired_pages = int(re.search(r"\d+", line).group(0))
+            elif "Pages occupied by compressor:" in line:
+                compressed_pages = int(re.search(r"\d+", line).group(0))
+
+        used_bytes = (active_pages + wired_pages + compressed_pages) * page_size
+        stats["used_gb"] = round(used_bytes / (1024**3), 1)
+        stats["free_gb"] = round(max(0.0, stats["total_gb"] - stats["used_gb"]), 1)
+
+        p_lvl = int(
+            subprocess.check_output(
+                ["sysctl", "-n", "kern.memorystatus_vm_pressure_level"], text=True, stderr=subprocess.DEVNULL
+            ).strip()
+        )
+        if p_lvl >= 4:
+            stats["pressure"] = "Critical"
+        elif p_lvl >= 2:
+            stats["pressure"] = "Warning"
+        else:
+            stats["pressure"] = "Normal"
+    except Exception:
+        pass
+    return stats
+
+
+def get_recent_metrics_from_log():
+    """Extract recent generation speed, eval tokens, and HTTP requests from log."""
+    metrics = {
+        "gen_speed": "-",
+        "prompt_eval": "-",
+        "last_request": "-",
+    }
+    log_file = resolve_log_file()
+    if not os.path.exists(log_file):
+        return metrics
+
+    try:
+        with open(log_file, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(max(0, size - 65536))
+            lines = f.read().decode("utf-8", errors="ignore").splitlines()
+
+        for line in reversed(lines):
+            if "tokens per second" in line:
+                m_speed = re.search(r"([\d\.]+)\s+tokens per second", line)
+                if m_speed:
+                    if "prompt eval time" in line:
+                        if metrics["prompt_eval"] == "-":
+                            metrics["prompt_eval"] = f"{m_speed.group(1)} tok/s"
+                    else:
+                        if metrics["gen_speed"] == "-":
+                            metrics["gen_speed"] = f"{m_speed.group(1)} tok/s"
+
+            if "[GIN]" in line and metrics["last_request"] == "-":
+                m_gin = re.search(r'\|\s*(\d{3})\s*\|\s*([\d\.]+[a-zµ]+)\s*\|.*?(POST|GET)\s+"([^"]+)"', line)
+                if m_gin:
+                    code, duration, method, path = m_gin.groups()
+                    if path not in ("/api/ps", "/api/version", "/api/tags"):
+                        metrics["last_request"] = f"{method} {path} ({code}, {duration})"
+
+            if metrics["gen_speed"] != "-" and metrics["prompt_eval"] != "-" and metrics["last_request"] != "-":
+                break
+    except Exception:
+        pass
+    return metrics
+
+
+def unload_active_models():
+    """Force Ollama to immediately unload active models from VRAM."""
+    ps_data = fetch_api("/api/ps")
+    if not ps_data or not ps_data.get("models"):
+        return False, "No models currently in VRAM"
+
+    unloaded = []
+    for m in ps_data.get("models", []):
+        name = m.get("name")
+        if name:
+            try:
+                payload = json.dumps({"model": name, "keep_alive": 0}).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{API_URL}/api/generate",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=4.0) as resp:
+                    if resp.status == 200:
+                        unloaded.append(name)
+            except Exception:
+                pass
+    if unloaded:
+        return True, f"Unloaded: {', '.join(unloaded)}"
+    return False, "Failed to unload models"
+
+
+def render_bar(used: float, total: float, width: int = 24, color: str = GREEN) -> str:
+    """Render a visual ASCII / ANSI progress bar."""
+    ratio = min(1.0, max(0.0, used / total)) if total > 0 else 0.0
+    filled = int(round(ratio * width))
+    bar = "█" * filled + "░" * (width - filled)
+    pct = int(ratio * 100)
+    return f"{color}{bar}{RESET} {pct}%"
+
+
+def format_bytes_gb(size_bytes: int) -> float:
+    return round(size_bytes / (1024**3), 2)
+
+
+def estimate_model_footprint(name: str, disk_gb: float) -> str:
+    lower = name.lower()
+    is_32k = "32k" in lower
+    est_vram = round(disk_gb + (1.9 if is_32k else 0.5), 1)
+    if "coder" in lower or "codestral" in lower or "starcoder" in lower:
+        role = "32K Repo Audits" if is_32k else "4K Coding & Tools"
+    elif "r1" in lower or "qwq" in lower or "reason" in lower:
+        role = "32K Deep Logic" if is_32k else "4K CoT Reasoning"
+    else:
+        role = "32K Expanded Context" if is_32k else "General Inference"
+    return f"~{est_vram} GB VRAM ({role})"
+
+
+def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, banner_msg=""):
+    """Assemble and print the dashboard screen."""
+    lines = []
+    lines.append(f"{BOLD}{CYAN}=== OLLAMA SYSTEM & LLM MONITOR (ollama-top) ==={RESET}")
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if version_data:
+        ver_str = f"{GREEN}● RUNNING{RESET} (v{version_data.get('version', '?')})"
+    else:
+        ver_str = f"{RED}● STOPPED / UNREACHABLE{RESET}"
+
+    lines.append(f"Engine: {ver_str}  |  Host: {API_URL}  |  Time: {DIM}{now_str}{RESET}")
+    lines.append("─" * 74)
+
+    lines.append(f"{BOLD}HOST HARDWARE SPECS (APPLE SILICON){RESET}")
+    lines.append(f"  Chip & CPU:   {BOLD}{WHITE}{hw_info['chip']}{RESET}  |  {hw_info['cores']}")
+    lines.append(f"  Graphics:     {BOLD}{hw_info['gpu']}{RESET}  |  OS: {hw_info['os']}")
+    lines.append(f"  Storage NVMe: {hw_info['disk_free']}")
+    lines.append("─" * 74)
+
+    lines.append(f"{BOLD}UNIFIED MEMORY (RAM / VRAM SHARED){RESET}")
+    used_gb = mem_stats["used_gb"]
+    total_gb = mem_stats["total_gb"]
+    pressure_col = (
+        GREEN if mem_stats["pressure"] == "Normal" else (YELLOW if mem_stats["pressure"] == "Warning" else RED)
+    )
+
+    mem_bar = render_bar(used_gb, total_gb, 20, GREEN if used_gb / max(1.0, total_gb) < 0.75 else YELLOW)
+    lines.append(f"  Unified RAM:  [{mem_bar}] {used_gb} GB / {total_gb} GB")
+    lines.append(f"  RAM Pressure: {pressure_col}{mem_stats['pressure']}{RESET}  |  Free Memory Buffer: ~{mem_stats['free_gb']} GB")
+    lines.append("─" * 74)
+
+    lines.append(f"{BOLD}ACTIVE MODEL IN VRAM{RESET}")
+    models = ps_data.get("models", []) if ps_data else []
+    if not models:
+        lines.append(f"  {DIM}Status: IDLE / 0.00 GB VRAM consumed (Auto-sleep active).{RESET}")
+        lines.append(f"  {DIM}Note: Models stream into Metal GPU memory on demand.{RESET}")
+    else:
+        for m in models:
+            name = m.get("name", "Unknown")
+            size_bytes = m.get("size", 0)
+            vram_bytes = m.get("size_vram", size_bytes)
+            vram_gb = format_bytes_gb(vram_bytes)
+            expires_at = m.get("expires_at", "")
+
+            until_str = "Active"
+            if expires_at:
+                try:
+                    clean_ts = re.sub(r"\.\d+", "", expires_at)
+                    if clean_ts.endswith("Z"):
+                        clean_ts = clean_ts[:-1] + "+00:00"
+                    exp_dt = datetime.datetime.fromisoformat(clean_ts)
+                    now_utc = datetime.datetime.now(datetime.timezone.utc)
+                    diff = (exp_dt - now_utc).total_seconds()
+                    if diff > 0:
+                        mins, secs = divmod(int(diff), 60)
+                        until_str = f"Auto-sleep in {mins}m {secs:02d}s"
+                    else:
+                        until_str = "Expiring..."
+                except Exception:
+                    until_str = expires_at[:19]
+
+            vram_bar = render_bar(vram_gb, total_gb, 16, MAGENTA)
+            lines.append(f"  {GREEN}▶ ACTIVE:{RESET} {BOLD}{name}{RESET}")
+            lines.append(f"    VRAM Usage:  [{vram_bar}] {vram_gb} GB (100% GPU Metal Shaders)")
+            lines.append(f"    Auto-Sleep:  {YELLOW}{until_str}{RESET} (Drops to 0 GB VRAM when idle)")
+
+    lines.append("─" * 74)
+
+    lines.append(f"{BOLD}INSTALLED LLM INVENTORY (AVAILABLE TO LOAD){RESET}")
+    installed_models = tags_data.get("models", []) if tags_data else []
+    if not installed_models:
+        lines.append(f"  {DIM}No models found in local storage.{RESET}")
+    else:
+        for item in installed_models:
+            m_name = item.get("name", "")
+            m_size = format_bytes_gb(item.get("size", 0))
+            m_details = item.get("details", {})
+            m_params = m_details.get("parameter_size", "?")
+            m_quant = m_details.get("quantization_level", "GGUF")
+            est = estimate_model_footprint(m_name, m_size)
+
+            is_active = any(active_m.get("name") == m_name for active_m in models)
+            tag = f"{GREEN}[ACTIVE IN VRAM]{RESET} " if is_active else f"{DIM}[STANDBY ON SSD]{RESET} "
+
+            lines.append(f"  {tag}{BOLD}{m_name:<25}{RESET} ({m_params}, {m_quant}, {m_size} GB disk)")
+            lines.append(f"    └─ VRAM Footprint: {CYAN}{est}{RESET}")
+
+    lines.append("─" * 74)
+
+    lines.append(f"{BOLD}INFERENCE SPEED & RECENT ACTIVITY{RESET}")
+    lines.append(f"  Eval Generation Speed:   {BOLD}{CYAN}{log_metrics['gen_speed']}{RESET}")
+    lines.append(f"  Prompt Ingest Speed:     {BOLD}{BLUE}{log_metrics['prompt_eval']}{RESET}")
+    lines.append(f"  Last LLM Request:        {DIM}{log_metrics['last_request']}{RESET}")
+
+    if banner_msg:
+        lines.append("")
+        lines.append(f"{BOLD}{YELLOW}Notice:{RESET} {banner_msg}")
+
+    lines.append("─" * 74)
+    lines.append(f"{DIM}Keys: [u] Unload VRAM immediately  |  [r] Refresh  |  [q] Quit{RESET}")
+
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Monitor Ollama and Apple Silicon hardware usage.")
+    parser.add_argument("--once", action="store_true", help="Print stats once and exit.")
+    parser.add_argument("-i", "--interval", type=float, default=1.5, help="Refresh interval in seconds (default: 1.5).")
+    args = parser.parse_args()
+
+    hw_info = get_hardware_info()
+
+    if args.once:
+        ps_data = fetch_api("/api/ps")
+        version_data = fetch_api("/api/version")
+        tags_data = fetch_api("/api/tags")
+        mem_stats = get_system_memory()
+        log_metrics = get_recent_metrics_from_log()
+        print(render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info))
+        return
+
+    import select
+    import termios
+    import tty
+
+    old_settings = None
+    try:
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+    except Exception:
+        pass
+
+    sys.stdout.write(HIDE_CURSOR)
+    banner_msg = ""
+    banner_expiry = 0.0
+
+    try:
+        while True:
+            ps_data = fetch_api("/api/ps")
+            version_data = fetch_api("/api/version")
+            tags_data = fetch_api("/api/tags")
+            mem_stats = get_system_memory()
+            log_metrics = get_recent_metrics_from_log()
+
+            if time.time() > banner_expiry:
+                banner_msg = ""
+
+            content = render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, banner_msg)
+            sys.stdout.write(CLEAR_SCREEN + content + "\n")
+            sys.stdout.flush()
+
+            rlist, _, _ = select.select([sys.stdin], [], [], args.interval)
+            if rlist:
+                ch = sys.stdin.read(1).lower()
+                if ch in ("q", "\x03"):
+                    break
+                elif ch == "u":
+                    _, msg = unload_active_models()
+                    banner_msg = msg
+                    banner_expiry = time.time() + 4.0
+                elif ch == "r":
+                    banner_msg = "Refreshed."
+                    banner_expiry = time.time() + 1.5
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.stdout.write(SHOW_CURSOR)
+        sys.stdout.flush()
+        if old_settings:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            except Exception:
+                pass
+        print(CLEAR_SCREEN + "Exited ollama-top.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,27 @@
+# Build & Packaging Artifacts
+dist/
+build/
+*.app/
+*.zip
+*.tar.gz
+*.iconset/
+SHA256SUMS.txt
+
+# macOS Metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Swift / Xcode
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
