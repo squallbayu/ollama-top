@@ -5,6 +5,7 @@
 import AppKit
 import Darwin
 import Foundation
+import SQLite3
 import SwiftUI
 
 // MARK: - Ollama HTTP API Models
@@ -265,6 +266,181 @@ enum SystemTelemetry {
     }
 }
 
+// MARK: - Antigravity Telemetry Models & Reader
+
+struct AntigravityStats: Equatable {
+    var isInstalled: Bool = false
+    var isActive: Bool = false
+    var activePID: String = "-"
+    var workspace: String = "-"
+    var convoCount: Int = 0
+    var stepCount: Int = 0
+    var lastTitle: String = "-"
+    var todayIn: Int64 = 0
+    var todayOut: Int64 = 0
+    var todayCache: Int64 = 0
+    var todayTurns: Int = 0
+    var allTurns: Int = 0
+
+    var formattedTodayTokens: String {
+        let total = Double(todayIn + todayOut)
+        if total >= 1_000_000 {
+            return String(format: "%.2fM", total / 1_000_000.0)
+        } else if total >= 1_000 {
+            return String(format: "%.1fK", total / 1_000.0)
+        }
+        return "\(todayIn + todayOut)"
+    }
+
+    var formattedTodayIn: String {
+        let n = Double(todayIn)
+        if n >= 1_000_000 { return String(format: "%.2fM in", n / 1_000_000.0) }
+        if n >= 1_000 { return String(format: "%.1fK in", n / 1_000.0) }
+        return "\(todayIn) in"
+    }
+
+    var formattedTodayOut: String {
+        let n = Double(todayOut)
+        if n >= 1_000_000 { return String(format: "%.2fM out", n / 1_000_000.0) }
+        if n >= 1_000 { return String(format: "%.1fK out", n / 1_000.0) }
+        return "\(todayOut) out"
+    }
+
+    var formattedTodayCache: String {
+        let n = Double(todayCache)
+        if n >= 1_000_000 { return String(format: "%.2fM cache", n / 1_000_000.0) }
+        if n >= 1_000 { return String(format: "%.1fK cache", n / 1_000.0) }
+        return "\(todayCache) cache"
+    }
+
+    var formattedLifetimeSummary: String {
+        let stepsStr = stepCount >= 1_000 ? String(format: "%.1fK", Double(stepCount) / 1_000.0) : "\(stepCount)"
+        let convoWord = convoCount == 1 ? "session" : "sessions"
+        return "\(convoCount) \(convoWord) • \(stepsStr) steps"
+    }
+}
+
+enum AntigravityTelemetryReader {
+    static func read() -> AntigravityStats {
+        var stats = AntigravityStats()
+        let home = NSHomeDirectory()
+        let geminiDir = "\(home)/.gemini/antigravity-cli"
+        let fm = FileManager.default
+
+        guard fm.fileExists(atPath: geminiDir) else {
+            return stats
+        }
+        stats.isInstalled = true
+
+        // 1. Process probe
+        let p = Process()
+        let pipe = Pipe()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+        p.arguments = ["-fl", "agy"]
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        do {
+            try p.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            if let out = String(data: data, encoding: .utf8) {
+                for line in out.components(separatedBy: .newlines) {
+                    if line.contains("--hub") || line.contains("bin/agy") {
+                        stats.isActive = true
+                        let parts = line.split(separator: " ").map(String.init)
+                        if let pid = parts.first { stats.activePID = pid }
+                        for part in parts {
+                            if part.hasPrefix("--add-dir=") {
+                                let dir = String(part.dropFirst("--add-dir=".count))
+                                stats.workspace = (dir as NSString).lastPathComponent
+                            }
+                        }
+                        break
+                    }
+                }
+            }
+        } catch {}
+
+        // 2. Read SQLite summaries
+        let dbPath = "\(geminiDir)/conversation_summaries.db"
+        if fm.fileExists(atPath: dbPath) {
+            var db: OpaquePointer?
+            if sqlite3_open_v2("file:\(dbPath)?mode=ro", &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK, let db = db {
+                var stmt: OpaquePointer?
+                if sqlite3_prepare_v2(db, "SELECT count(*), coalesce(sum(step_count), 0) FROM conversation_summaries", -1, &stmt, nil) == SQLITE_OK {
+                    if sqlite3_step(stmt) == SQLITE_ROW {
+                        stats.convoCount = Int(sqlite3_column_int(stmt, 0))
+                        stats.stepCount = Int(sqlite3_column_int(stmt, 1))
+                    }
+                    sqlite3_finalize(stmt)
+                }
+
+                var stmtLast: OpaquePointer?
+                if sqlite3_prepare_v2(db, "SELECT title, workspace_uris FROM conversation_summaries ORDER BY last_modified_time DESC LIMIT 1", -1, &stmtLast, nil) == SQLITE_OK {
+                    if sqlite3_step(stmtLast) == SQLITE_ROW {
+                        if let cTitle = sqlite3_column_text(stmtLast, 0) {
+                            stats.lastTitle = String(cString: cTitle)
+                        }
+                        if stats.workspace == "-", let cUris = sqlite3_column_text(stmtLast, 1) {
+                            let urisStr = String(cString: cUris).trimmingCharacters(in: CharacterSet(charactersIn: "[]'\" "))
+                            stats.workspace = (urisStr as NSString).lastPathComponent
+                        }
+                    }
+                    sqlite3_finalize(stmtLast)
+                }
+                sqlite3_close(db)
+            }
+        }
+
+        // 3. Scan transcripts (mtime < 30 days)
+        let brainDir = "\(geminiDir)/brain"
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let todayComponents = utcCal.dateComponents([.year, .month, .day], from: Date())
+        let todayStr: String
+        if let y = todayComponents.year, let m = todayComponents.month, let d = todayComponents.day {
+            todayStr = String(format: "%04d-%02d-%02d", y, m, d)
+        } else {
+            todayStr = ""
+        }
+
+        if let brainContents = try? fm.contentsOfDirectory(atPath: brainDir) {
+            for convoId in brainContents {
+                let transPath = "\(brainDir)/\(convoId)/.system_generated/logs/transcript.jsonl"
+                guard fm.fileExists(atPath: transPath) else { continue }
+                guard let attrs = try? fm.attributesOfItem(atPath: transPath),
+                      let mdate = attrs[.modificationDate] as? Date,
+                      Date().timeIntervalSince(mdate) < 30 * 86400 else { continue }
+
+                guard let handle = FileHandle(forReadingAtPath: transPath) else { continue }
+                let data = handle.readDataToEndOfFile()
+                try? handle.close()
+                guard let text = String(data: data, encoding: .utf8) else { continue }
+
+                for line in text.components(separatedBy: .newlines) {
+                    guard line.contains("\"PLANNER_RESPONSE\""),
+                          let lineData = line.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else { continue }
+
+                    let inp = json["input_tokens"] as? Int64 ?? 0
+                    let out = json["output_tokens"] as? Int64 ?? 0
+                    let cache = json["cache_read_tokens"] as? Int64 ?? 0
+                    stats.allTurns += 1
+
+                    if !todayStr.isEmpty, let createdAt = json["created_at"] as? String, createdAt.hasPrefix(todayStr) {
+                        stats.todayIn += inp
+                        stats.todayOut += out
+                        stats.todayCache += cache
+                        stats.todayTurns += 1
+                    }
+                }
+            }
+        }
+
+        return stats
+    }
+}
+
 // MARK: - Monitor ViewModel
 
 enum MenuBarVisualState: Equatable {
@@ -289,6 +465,8 @@ final class OllamaMonitor: ObservableObject {
     @Published var genSpeed: String = "-"
     @Published var promptSpeed: String = "-"
     @Published var lastRequest: String = "-"
+
+    @Published var antigravity: AntigravityStats = AntigravityStats()
 
     @Published var busyModelName: String? = nil
     @Published var isTogglingDaemon: Bool = false
@@ -452,6 +630,11 @@ final class OllamaMonitor: ObservableObject {
             self.promptSpeed = metrics.promptSpeed
             self.lastRequest = metrics.lastReq
             self.diskInfo = SystemTelemetry.getDiskSpace()
+
+            let agStats = await Task.detached(priority: .utility) {
+                AntigravityTelemetryReader.read()
+            }.value
+            self.antigravity = agStats
         }
     }
 
@@ -648,6 +831,7 @@ struct PopoverDashboardView: View {
             activeVRAMSection
             memoryAndHardwareSection
             telemetrySection
+            antigravitySection
             installedModelsSection
 
             if let banner = monitor.statusBanner {
@@ -970,6 +1154,72 @@ struct PopoverDashboardView: View {
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
     }
 
+    // 5. Antigravity Usage Card
+    @ViewBuilder
+    private var antigravitySection: some View {
+        if monitor.antigravity.isInstalled {
+            let ag = monitor.antigravity
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Label("ANTIGRAVITY TELEMETRY", systemImage: "sparkles")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if ag.isActive {
+                        HStack(spacing: 4) {
+                            Circle().fill(Color.green).frame(width: 6, height: 6)
+                            Text("Active (\(ag.workspace))")
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(.green)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1.5)
+                        .background(Color.green.opacity(0.12), in: Capsule())
+                    } else {
+                        Text("Standby")
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Today's Tokens:")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(ag.formattedTodayTokens) (\(ag.todayTurns) turns)")
+                            .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.primary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("├─ \(ag.formattedTodayIn)")
+                        Text("•")
+                        Text("\(ag.formattedTodayOut)")
+                        Text("•")
+                        Text("\(ag.formattedTodayCache)")
+                    }
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                    Divider().opacity(0.3).padding(.vertical, 1)
+
+                    HStack {
+                        specBadge(icon: "archivebox.fill", text: ag.formattedLifetimeSummary)
+                        Spacer()
+                        if ag.lastTitle != "-" {
+                            specBadge(icon: "text.bubble.fill", text: ag.lastTitle)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+    }
+
+    // 6. Installed LLM Inventory
     private var installedModelsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {

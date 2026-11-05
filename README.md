@@ -28,6 +28,7 @@ Built specifically for **Apple Silicon (M1 / M2 / M3 / M4 / M5)** Unified Memory
 - **🍏 Native Darwin Mach Kernel Telemetry (`0.0%` CPU)**: Reads active, wired, and compressed Unified Memory pages and kernel VM pressure (`Normal` / `Warning` / `Critical`) directly in-process via `host_statistics64` and `sysctlbyname`—spawning zero background shell processes.
 - **🖥️ Multi-Monitor Control Center Dropdown**: Frosted glass `NSVisualEffectView` panel pinned strictly below the menu bar across MacBook Notch Retina displays and external 1080p/4K monitors.
 - **📊 Live Token Speed Telemetry**: Automatically discovers your Ollama server log (`~/.ollama/logs/server.log`, Homebrew, or custom `$OLLAMA_LOG_PATH`) to display real-time generation speed (`tok/s`), prompt ingestion speed (`tok/s`), and last API latency.
+- **🚀 Antigravity Agent Telemetry**: Seamlessly reads local runtime transcripts (`~/.gemini/antigravity-cli/`) with zero cloud dependencies to display today's token usage (input, output, and prompt cache hit rates), active workspace, and lifetime agent steps.
 - **🔌 Multi-Installation Service Control**: Start or stop Ollama directly from the Menu Bar whether installed via official `Ollama.app`, Homebrew (`brew services`), or a custom user `LaunchAgent`.
 
 ---
@@ -110,6 +111,13 @@ ACTIVE MODEL IN VRAM
   ▶ ACTIVE: qwen2.5-coder:14b
     VRAM Usage:  [██████░░░░░░░░░░] 35% 8.48 GB (100% GPU Metal Shaders)
     Auto-Sleep:  Auto-sleep in 4m 32s (Drops to 0 GB VRAM when idle)
+──────────────────────────────────────────────────────────────────────────
+ANTIGRAVITY USAGE & RUNTIME TELEMETRY
+  Agent Process:           ● ACTIVE (PID 15204, pevr-id)
+  Today's Tokens:          2.77M tokens (466 turns)
+    └─ Breakdown:          2.48M in • 293.1K out • 61.45M cache
+  Lifetime Stats:          9 sessions • 26.8K steps (13,059 turns)
+  Last Session:            Ollama and Antygravity Integration
 ──────────────────────────────────────────────────────────────────────────
 Keys: [u] Unload VRAM immediately  |  [r] Refresh  |  [q] Quit
 ```

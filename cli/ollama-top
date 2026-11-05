@@ -230,6 +230,102 @@ def get_recent_metrics_from_log():
     return metrics
 
 
+def get_antigravity_telemetry():
+    """Retrieve local Antigravity runtime token and conversation stats."""
+    home = os.path.expanduser("~")
+    stats = {
+        "is_installed": False,
+        "is_active": False,
+        "active_pid": "-",
+        "workspace": "-",
+        "convo_count": 0,
+        "step_count": 0,
+        "last_title": "-",
+        "today_in": 0,
+        "today_out": 0,
+        "today_cache": 0,
+        "today_turns": 0,
+        "all_turns": 0,
+    }
+    gemini_dir = os.path.join(home, ".gemini/antigravity-cli")
+    if not os.path.exists(gemini_dir):
+        return stats
+    stats["is_installed"] = True
+
+    # 1. Process check
+    try:
+        out = subprocess.check_output(["pgrep", "-fl", "agy"], text=True, stderr=subprocess.DEVNULL)
+        for line in out.splitlines():
+            if "--hub" in line or "bin/agy" in line:
+                stats["is_active"] = True
+                parts = line.split()
+                if parts:
+                    stats["active_pid"] = parts[0]
+                for p in parts:
+                    if p.startswith("--add-dir="):
+                        stats["workspace"] = os.path.basename(p.split("=", 1)[1])
+                break
+    except Exception:
+        pass
+
+    # 2. SQLite summaries
+    db_path = os.path.join(gemini_dir, "conversation_summaries.db")
+    if os.path.exists(db_path):
+        import sqlite3
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
+            cur = conn.cursor()
+            cur.execute("SELECT count(*), coalesce(sum(step_count), 0) FROM conversation_summaries")
+            row = cur.fetchone()
+            if row:
+                stats["convo_count"] = row[0]
+                stats["step_count"] = row[1]
+
+            cur.execute("SELECT title, workspace_uris FROM conversation_summaries ORDER BY last_modified_time DESC LIMIT 1")
+            row = cur.fetchone()
+            if row:
+                stats["last_title"] = row[0] or "Untitled Session"
+                if stats["workspace"] == "-" and row[1]:
+                    stats["workspace"] = os.path.basename(row[1].strip("[]'\" "))
+            conn.close()
+        except Exception:
+            pass
+
+    # 3. Transcripts tokens
+    pattern = os.path.join(gemini_dir, "brain/*/.system_generated/logs/transcript.jsonl")
+    import glob
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    today = now_utc.date()
+
+    for f in glob.glob(pattern):
+        try:
+            mtime = os.path.getmtime(f)
+            file_date = datetime.datetime.fromtimestamp(mtime, datetime.timezone.utc).date()
+            if (today - file_date).days > 30:
+                continue
+            with open(f, "r", errors="ignore") as fp:
+                for line in fp:
+                    if '"PLANNER_RESPONSE"' in line:
+                        d = json.loads(line)
+                        inp = d.get("input_tokens", 0)
+                        out = d.get("output_tokens", 0)
+                        cache = d.get("cache_read_tokens", 0)
+                        stats["all_turns"] += 1
+
+                        created = d.get("created_at", "")
+                        if created:
+                            dt = datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))
+                            if dt.date() == today:
+                                stats["today_in"] += inp
+                                stats["today_out"] += out
+                                stats["today_cache"] += cache
+                                stats["today_turns"] += 1
+        except Exception:
+            pass
+
+    return stats
+
+
 def unload_active_models():
     """Force Ollama to immediately unload active models from VRAM."""
     ps_data = fetch_api("/api/ps")
@@ -283,7 +379,7 @@ def estimate_model_footprint(name: str, disk_gb: float) -> str:
     return f"~{est_vram} GB VRAM ({role})"
 
 
-def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, banner_msg=""):
+def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, ag_stats=None, banner_msg=""):
     """Assemble and print the dashboard screen."""
     lines = []
     lines.append(f"{BOLD}{CYAN}=== OLLAMA SYSTEM & LLM MONITOR (ollama-top) ==={RESET}")
@@ -352,6 +448,32 @@ def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, h
 
     lines.append("─" * 74)
 
+    lines.append(f"{BOLD}INFERENCE SPEED & RECENT ACTIVITY{RESET}")
+    lines.append(f"  Eval Generation Speed:   {BOLD}{CYAN}{log_metrics['gen_speed']}{RESET}")
+    lines.append(f"  Prompt Ingest Speed:     {BOLD}{BLUE}{log_metrics['prompt_eval']}{RESET}")
+    lines.append(f"  Last LLM Request:        {DIM}{log_metrics['last_request']}{RESET}")
+    lines.append("─" * 74)
+
+    if ag_stats and ag_stats.get("is_installed"):
+        lines.append(f"{BOLD}ANTIGRAVITY USAGE & RUNTIME TELEMETRY{RESET}")
+        status_tag = f"{GREEN}● ACTIVE (PID {ag_stats['active_pid']}, {ag_stats['workspace']}){RESET}" if ag_stats["is_active"] else f"{DIM}○ Standby{RESET}"
+        lines.append(f"  Agent Process:           {status_tag}")
+        
+        today_tot = ag_stats["today_in"] + ag_stats["today_out"]
+        t_fmt = f"{today_tot/1_000_000:.2f}M" if today_tot >= 1_000_000 else (f"{today_tot/1_000:.1f}K" if today_tot >= 1_000 else str(today_tot))
+        in_fmt = f"{ag_stats['today_in']/1_000_000:.2f}M in" if ag_stats['today_in'] >= 1_000_000 else (f"{ag_stats['today_in']/1_000:.1f}K in" if ag_stats['today_in'] >= 1_000 else f"{ag_stats['today_in']} in")
+        out_fmt = f"{ag_stats['today_out']/1_000_000:.2f}M out" if ag_stats['today_out'] >= 1_000_000 else (f"{ag_stats['today_out']/1_000:.1f}K out" if ag_stats['today_out'] >= 1_000 else f"{ag_stats['today_out']} out")
+        cache_fmt = f"{ag_stats['today_cache']/1_000_000:.2f}M cache" if ag_stats['today_cache'] >= 1_000_000 else (f"{ag_stats['today_cache']/1_000:.1f}K cache" if ag_stats['today_cache'] >= 1_000 else f"{ag_stats['today_cache']} cache")
+
+        lines.append(f"  Today's Tokens:          {BOLD}{WHITE}{t_fmt} tokens{RESET} ({ag_stats['today_turns']} turns)")
+        lines.append(f"    └─ Breakdown:          {DIM}{in_fmt} • {out_fmt} • {cache_fmt}{RESET}")
+        
+        s_fmt = f"{ag_stats['step_count']/1_000:.1f}K" if ag_stats['step_count'] >= 1_000 else str(ag_stats['step_count'])
+        lines.append(f"  Lifetime Stats:          {ag_stats['convo_count']} sessions • {s_fmt} steps ({ag_stats['all_turns']} turns)")
+        if ag_stats['last_title'] != "-":
+            lines.append(f"  Last Session:            {DIM}{ag_stats['last_title'][:46]}{RESET}")
+        lines.append("─" * 74)
+
     lines.append(f"{BOLD}INSTALLED LLM INVENTORY (AVAILABLE TO LOAD){RESET}")
     installed_models = tags_data.get("models", []) if tags_data else []
     if not installed_models:
@@ -370,13 +492,6 @@ def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, h
 
             lines.append(f"  {tag}{BOLD}{m_name:<25}{RESET} ({m_params}, {m_quant}, {m_size} GB disk)")
             lines.append(f"    └─ VRAM Footprint: {CYAN}{est}{RESET}")
-
-    lines.append("─" * 74)
-
-    lines.append(f"{BOLD}INFERENCE SPEED & RECENT ACTIVITY{RESET}")
-    lines.append(f"  Eval Generation Speed:   {BOLD}{CYAN}{log_metrics['gen_speed']}{RESET}")
-    lines.append(f"  Prompt Ingest Speed:     {BOLD}{BLUE}{log_metrics['prompt_eval']}{RESET}")
-    lines.append(f"  Last LLM Request:        {DIM}{log_metrics['last_request']}{RESET}")
 
     if banner_msg:
         lines.append("")
@@ -402,7 +517,8 @@ def main():
         tags_data = fetch_api("/api/tags")
         mem_stats = get_system_memory()
         log_metrics = get_recent_metrics_from_log()
-        print(render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info))
+        ag_stats = get_antigravity_telemetry()
+        print(render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, ag_stats))
         return
 
     import select
@@ -427,11 +543,12 @@ def main():
             tags_data = fetch_api("/api/tags")
             mem_stats = get_system_memory()
             log_metrics = get_recent_metrics_from_log()
+            ag_stats = get_antigravity_telemetry()
 
             if time.time() > banner_expiry:
                 banner_msg = ""
 
-            content = render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, banner_msg)
+            content = render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, ag_stats, banner_msg)
             sys.stdout.write(CLEAR_SCREEN + content + "\n")
             sys.stdout.flush()
 
