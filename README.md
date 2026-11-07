@@ -23,6 +23,10 @@ Built specifically for **Apple Silicon (M1 / M2 / M3 / M4 / M5)** Unified Memory
 ## ✨ Key Features
 
 - **🟢 Always-Visible Menu Bar Pill**: See at a single glance whether GPU Unified Memory is clean (`🧠 Idle`) or holding a resident LLM (`🧠 Qwen 8.5G`, `🧠 R1 8.5G`, `⚡ Off`) without leaving your IDE.
+- **✨ Apple Liquid Glass & Material Vibrancy UI**: Fully redesigned popover using Apple's modern `NSVisualEffectView.Material.hudWindow`, continuous squircle curvature (`.continuous`), specular hairline border refraction, and flush menu bar positioning matching native macOS Control Center, Battery, and Wi-Fi popovers.
+- **🎮 Animated Agent & Bed State Sprites**:
+  - **In Active GPU / VRAM**: An animated character typing at a glowing computer desk while the model is actively processing or resident in VRAM.
+  - **In Installed LLM Inventory**: An animated bed with a sleeping agent tucked under a breathing blanket and floating animated **"Zzz"** for standby models, automatically shifting to an **empty bed** when the model is hot-loaded into memory.
 - **⚡ One-Click & One-Key VRAM Eviction**: Reclaim 8–20+ GB of Unified Memory immediately (`Unload VRAM` button in Menu Bar or `[u]` in CLI) instead of waiting 5 minutes for Ollama's default `keep_alive` timeout.
 - **🔥 Warm Preload & Model Switching**: View your entire on-disk GGUF catalog (`/api/tags`) with estimated KV-cache VRAM footprints and preload any model into Metal GPU memory in one click.
 - **🍏 Native Darwin Mach Kernel Telemetry (`0.0%` CPU)**: Reads active, wired, and compressed Unified Memory pages and kernel VM pressure (`Normal` / `Warning` / `Critical`) directly in-process via `host_statistics64` and `sysctlbyname`—spawning zero background shell processes.

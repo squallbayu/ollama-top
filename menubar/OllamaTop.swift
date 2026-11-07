@@ -1600,6 +1600,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         setupFloatingPanel()
 
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(togglePanel(_:)),
+            name: NSNotification.Name("io.github.squallbayu.ollamatop.togglePanel"),
+            object: nil
+        )
+
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(captureScreenshotNotification(_:)),
+            name: NSNotification.Name("io.github.squallbayu.ollamatop.captureScreenshot"),
+            object: nil
+        )
+
         monitor.onMenuBarChange = { [weak self] state in
             self?.applyMenuBarState(state)
         }
@@ -1677,6 +1691,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             img?.isTemplate = false
             button.image = img
             button.title = " \(shortLabel)"
+        }
+    }
+
+    @objc private func captureScreenshotNotification(_ sender: AnyObject?) {
+        guard let targetView = effectView else { return }
+        if !panel.isVisible {
+            openPanelBelowMenuBar()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self = self, let cv = self.effectView else { return }
+            let bounds = cv.bounds
+            guard bounds.width > 0, bounds.height > 0,
+                  let rep = cv.bitmapImageRepForCachingDisplay(in: bounds) else { return }
+            cv.cacheDisplay(in: bounds, to: rep)
+
+            let home = NSHomeDirectory()
+            let destPaths = [
+                "\(home)/programs/ollama/ollama-top/docs/assets/ollama-top-menubar.jpg",
+                "/tmp/ollama-top-menubar.jpg"
+            ]
+
+            if let jpgData = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.92]) {
+                for dest in destPaths {
+                    try? jpgData.write(to: URL(fileURLWithPath: dest), options: .atomic)
+                }
+                print("==> Saved popover screenshot (\(Int(bounds.width))x\(Int(bounds.height))) to docs/assets/ollama-top-menubar.jpg")
+            }
         }
     }
 
