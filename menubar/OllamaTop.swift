@@ -1592,6 +1592,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.imagePosition = .imageLeading
+            button.imageScaling = .scaleProportionallyDown
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
             button.target = self
             button.action = #selector(togglePanel(_:))
@@ -1675,17 +1676,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         case .stopped:
             let img = NSImage(systemSymbolName: "bolt.horizontal.circle", accessibilityDescription: "Ollama Stopped")
             img?.isTemplate = true
-            button.image = img?.withSymbolConfiguration(.init(pointSize: 13.5, weight: .regular))
+            button.image = img?.withSymbolConfiguration(.init(pointSize: 12.0, weight: .regular))
             button.title = " Off"
 
         case .idle:
             let img = NSImage(systemSymbolName: "brain.head.profile", accessibilityDescription: "Ollama Idle")
             img?.isTemplate = true
-            button.image = img?.withSymbolConfiguration(.init(pointSize: 13.5, weight: .medium))
+            button.image = img?.withSymbolConfiguration(.init(pointSize: 12.0, weight: .regular))
             button.title = " Idle"
 
         case .active(let shortLabel):
-            let cfg = NSImage.SymbolConfiguration(pointSize: 13.5, weight: .semibold)
+            let cfg = NSImage.SymbolConfiguration(pointSize: 12.0, weight: .medium)
                 .applying(.init(paletteColors: [NSColor.systemGreen]))
             let img = NSImage(systemSymbolName: "brain.head.profile", accessibilityDescription: "Model Active")?.withSymbolConfiguration(cfg)
             img?.isTemplate = false
