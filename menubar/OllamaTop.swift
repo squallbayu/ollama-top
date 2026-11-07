@@ -868,121 +868,142 @@ struct AgentModelWorkBedView: View {
     let isRunning: Bool
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.5)) { timeline in
-            let step = Int(timeline.date.timeIntervalSinceReferenceDate * 2) % 4
+        TimelineView(.periodic(from: .now, by: 0.45)) { timeline in
+            let step = Int(timeline.date.timeIntervalSinceReferenceDate * 2.2) % 4
             let typingToggle = step % 2 == 0
 
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 if isRunning {
-                    // 1. Desk + Agent Typing
+                    // DESK + AGENT TYPING
                     ZStack(alignment: .bottom) {
-                        // Monitor screen glow
+                        // Ambient desk glow
+                        Circle()
+                            .fill(Color.teal.opacity(typingToggle ? 0.35 : 0.15))
+                            .frame(width: 22, height: 22)
+                            .offset(y: -4)
+
+                        // Computer screen
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(LinearGradient(colors: [Color.teal, Color.cyan], startPoint: .top, endPoint: .bottom))
+                            .frame(width: 10, height: 8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
+                            )
+                            .offset(x: 5, y: -4)
+
+                        // Desk table
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.orange.opacity(0.85))
+                            .frame(width: 16, height: 2.5)
+                            .offset(x: 3, y: 1.5)
+
+                        // Desk legs
+                        Rectangle()
+                            .fill(Color.orange.opacity(0.85))
+                            .frame(width: 1.5, height: 6)
+                            .offset(x: 9, y: 5)
+
+                        // Agent sitting and typing
+                        ZStack {
+                            // Head with bobbing
+                            Circle()
+                                .fill(Color.yellow)
+                                .frame(width: 7, height: 7)
+                                .overlay(
+                                    Circle().stroke(Color.orange.opacity(0.6), lineWidth: 0.5)
+                                )
+                                .offset(x: -3, y: typingToggle ? -7.5 : -6.5)
+
+                            // Torso
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(Color.teal)
+                                .frame(width: 6, height: 6.5)
+                                .offset(x: -3, y: 0)
+
+                            // Hands
+                            Circle()
+                                .fill(Color.yellow)
+                                .frame(width: 2.5, height: 2.5)
+                                .offset(x: typingToggle ? 1.5 : 0.5, y: typingToggle ? -1.0 : -0.2)
+                        }
+                    }
+                    .frame(width: 20, height: 20)
+                }
+
+                // BED (Empty if running, or sleeping agent if idle)
+                ZStack(alignment: .bottomLeading) {
+                    // Headboard
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(Color.brown)
+                        .frame(width: 3.5, height: 12)
+                        .offset(x: 0, y: 0)
+
+                    // Bed Mattress
+                    RoundedRectangle(cornerRadius: 1.2)
+                        .fill(Color.white)
+                        .frame(width: 15, height: 7)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 1.2)
+                                .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+                        )
+                        .offset(x: 2.5, y: 0)
+
+                    // Pillow
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(Color.white)
+                        .frame(width: 4.5, height: 4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .stroke(Color.blue.opacity(0.2), lineWidth: 0.5)
+                        )
+                        .offset(x: 3.5, y: -3.5)
+
+                    if isRunning {
+                        // EMPTY BED: Agent woke up and left bed to compute!
+                        // Rumpled blanket at bottom of bed
+                        RoundedRectangle(cornerRadius: 1.2)
+                            .fill(LinearGradient(colors: [Color.cyan, Color.teal], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 7.5, height: 5)
+                            .offset(x: 9.5, y: -0.5)
+                    } else {
+                        // SLEEPING AGENT IN BED
+                        // Head resting on pillow
+                        Circle()
+                            .fill(Color.yellow)
+                            .frame(width: 6, height: 6)
+                            .offset(x: 3.5, y: -3.5)
+
+                        // Sleeping closed eyes
+                        Rectangle()
+                            .fill(Color.black.opacity(0.75))
+                            .frame(width: 3, height: 0.9)
+                            .offset(x: 4.5, y: -3.5)
+
+                        // Breathing Blanket
                         RoundedRectangle(cornerRadius: 1.5)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color.teal, Color.cyan],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .opacity(typingToggle ? 0.95 : 0.6)
-                            .frame(width: 8, height: 7)
-                            .offset(x: 4, y: -4)
-
-                        // Desk surface
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.orange.opacity(0.75))
-                            .frame(width: 13, height: 2)
-                            .offset(x: 3, y: 1.5)
-
-                        // Agent sitting & typing
-                        ZStack {
-                            // Head
-                            Circle()
-                                .fill(Color.yellow.opacity(0.95))
-                                .frame(width: 5.5, height: 5.5)
-                                .offset(x: -2.5, y: typingToggle ? -6.2 : -5.5)
-
-                            // Torso
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(Color.teal)
-                                .frame(width: 5, height: 5)
-                                .offset(x: -2.5, y: 0)
-
-                            // Hands typing
-                            Circle()
-                                .fill(Color.yellow)
-                                .frame(width: 1.8, height: 1.8)
-                                .offset(x: typingToggle ? 1.2 : 0.4, y: typingToggle ? -0.8 : -0.2)
-                        }
-                    }
-                    .frame(width: 15, height: 16)
-                }
-
-                // 2. Bed (Empty if running, or Agent sleeping if idle)
-                ZStack(alignment: .bottomLeading) {
-                    // Headboard
-                    RoundedRectangle(cornerRadius: 1.2)
-                        .fill(Color.brown.opacity(0.85))
-                        .frame(width: 3, height: 10)
-                        .offset(x: 0, y: 0)
-
-                    // Bed Frame / Mattress
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.white.opacity(0.9))
-                        .frame(width: 12, height: 5.5)
-                        .offset(x: 2.2, y: 0)
-
-                    // Pillow
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.white)
-                        .frame(width: 3.5, height: 3)
-                        .offset(x: 3, y: -2.2)
-
-                    if isRunning {
-                        // EMPTY BED: Agent woke up and left bed to work!
-                        // Rumpled blanket at bottom of bed
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.cyan.opacity(0.55))
-                            .frame(width: 6, height: 3.5)
-                            .offset(x: 7.5, y: -0.5)
-                    } else {
-                        // SLEEPING AGENT IN BED
-                        // Head on pillow
-                        Circle()
-                            .fill(Color.yellow.opacity(0.9))
-                            .frame(width: 4.8, height: 4.8)
-                            .offset(x: 3.2, y: -2.6)
-
-                        // Closed eyes
-                        Rectangle()
-                            .fill(Color.black.opacity(0.65))
-                            .frame(width: 2.2, height: 0.7)
-                            .offset(x: 4.2, y: -2.6)
-
-                        // Breathing Blanket
-                        RoundedRectangle(cornerRadius: 1.2)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.indigo.opacity(0.8), Color.purple.opacity(0.8)],
+                                    colors: [Color.indigo, Color.purple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 8.5, height: typingToggle ? 5.0 : 4.0)
-                            .offset(x: 5.8, y: typingToggle ? -0.8 : 0)
+                            .frame(width: 10.5, height: typingToggle ? 6.2 : 5.0)
+                            .offset(x: 6.8, y: typingToggle ? -1.0 : 0)
 
                         // Animated Floating Zzz
                         let zOffset = CGFloat(step)
-                        Text(step == 0 ? "z" : (step == 1 ? "Z" : "z"))
-                            .font(.system(size: 6 + zOffset * 0.5, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.indigo.opacity(0.9 - Double(step) * 0.15))
-                            .offset(x: 8 + zOffset * 1.5, y: -7 - zOffset * 1.8)
+                        Text(step % 2 == 0 ? "z" : "Z")
+                            .font(.system(size: 8 + zOffset * 0.8, weight: .black, design: .rounded))
+                            .foregroundStyle(Color.indigo.opacity(1.0 - Double(step) * 0.18))
+                            .offset(x: 10 + zOffset * 2.0, y: -9 - zOffset * 2.5)
                     }
                 }
-                .frame(width: 15, height: 16)
+                .frame(width: 20, height: 20)
             }
-            .frame(width: isRunning ? 34 : 18, height: 18)
+            .frame(width: isRunning ? 45 : 24, height: 22)
+            .padding(.horizontal, 2)
         }
     }
 }
