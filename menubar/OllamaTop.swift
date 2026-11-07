@@ -821,6 +821,47 @@ final class OllamaMonitor: ObservableObject {
 
 // MARK: - SwiftUI Popover Dashboard
 
+// Modern Apple Glass/Vibrancy Card Style
+struct GlassCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = 11.0
+    var tintColor: Color? = nil
+    var tintOpacity: Double = 0.07
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.thinMaterial)
+                    if let tint = tintColor {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(tint.opacity(tintOpacity))
+                    }
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.18),
+                                    Color.white.opacity(0.04),
+                                    Color.black.opacity(0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.75
+                        )
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+extension View {
+    func glassCard(cornerRadius: CGFloat = 11.0, tint: Color? = nil, tintOpacity: Double = 0.07) -> some View {
+        modifier(GlassCardModifier(cornerRadius: cornerRadius, tintColor: tint, tintOpacity: tintOpacity))
+    }
+}
+
 struct PopoverDashboardView: View {
     @ObservedObject var monitor: OllamaMonitor
 
@@ -948,7 +989,7 @@ struct PopoverDashboardView: View {
                     Spacer()
                 }
                 .padding(10)
-                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                .glassCard(cornerRadius: 10)
             } else if monitor.activeModels.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "leaf.fill")
@@ -964,7 +1005,7 @@ struct PopoverDashboardView: View {
                     Spacer()
                 }
                 .padding(10)
-                .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                .glassCard(cornerRadius: 10, tint: .green, tintOpacity: 0.09)
             } else {
                 ForEach(monitor.activeModels) { m in
                     let vramGiB = OllamaMonitor.formatGiB(m.size_vram ?? m.size)
@@ -1037,7 +1078,7 @@ struct PopoverDashboardView: View {
                         }
                     }
                     .padding(10)
-                    .background(Color.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .glassCard(cornerRadius: 10, tint: .purple, tintOpacity: 0.10)
                 }
             }
         }
@@ -1096,7 +1137,7 @@ struct PopoverDashboardView: View {
                 }
             }
             .padding(10)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            .glassCard(cornerRadius: 10)
         }
     }
 
@@ -1151,7 +1192,7 @@ struct PopoverDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .glassCard(cornerRadius: 8)
     }
 
     // 5. Antigravity Usage Card
@@ -1214,7 +1255,7 @@ struct PopoverDashboardView: View {
                     }
                 }
                 .padding(10)
-                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                .glassCard(cornerRadius: 10)
             }
         }
     }
@@ -1288,9 +1329,10 @@ struct PopoverDashboardView: View {
                             }
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5.5)
-                            .background(
-                                isActive ? Color.green.opacity(0.08) : Color.primary.opacity(0.035),
-                                in: RoundedRectangle(cornerRadius: 8)
+                            .glassCard(
+                                cornerRadius: 8,
+                                tint: isActive ? .green : nil,
+                                tintOpacity: isActive ? 0.08 : 0.0
                             )
                         }
                     }
@@ -1427,14 +1469,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         effectView = NSVisualEffectView()
-        effectView.material = .popover
+        effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = 14.0
+        effectView.layer?.cornerRadius = 16.0
+        effectView.layer?.cornerCurve = .continuous
         effectView.layer?.masksToBounds = true
-        effectView.layer?.borderWidth = 0.8
-        effectView.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.45).cgColor
+        effectView.layer?.borderWidth = 1.0
+        effectView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.18).cgColor
 
         effectView.addSubview(hostingView)
         NSLayoutConstraint.activate([
@@ -1520,7 +1563,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             lockedCenterX = mouseLoc.x
         }
 
-        lockedTopY = min(menuBarBottomY, sFrame.maxY - 25.0) - 6.0
+        // Align directly flush against the bottom edge of the menu bar, exactly matching Apple's built-in popovers (Battery, Wi-Fi, Control Center)
+        lockedTopY = menuBarBottomY
         lockedScreenFrame = sFrame
 
         monitor.isPopoverVisible = true
