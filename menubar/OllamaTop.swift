@@ -862,6 +862,131 @@ extension View {
     }
 }
 
+// MARK: - Animated Agent & Bed State (Desk + Empty Bed when Running, Bed with Sleeping Agent when Idle)
+
+struct AgentModelWorkBedView: View {
+    let isRunning: Bool
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { timeline in
+            let step = Int(timeline.date.timeIntervalSinceReferenceDate * 2) % 4
+            let typingToggle = step % 2 == 0
+
+            HStack(spacing: 4) {
+                if isRunning {
+                    // 1. Desk + Agent Typing
+                    ZStack(alignment: .bottom) {
+                        // Monitor screen glow
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.teal, Color.cyan],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .opacity(typingToggle ? 0.95 : 0.6)
+                            .frame(width: 8, height: 7)
+                            .offset(x: 4, y: -4)
+
+                        // Desk surface
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.orange.opacity(0.75))
+                            .frame(width: 13, height: 2)
+                            .offset(x: 3, y: 1.5)
+
+                        // Agent sitting & typing
+                        ZStack {
+                            // Head
+                            Circle()
+                                .fill(Color.yellow.opacity(0.95))
+                                .frame(width: 5.5, height: 5.5)
+                                .offset(x: -2.5, y: typingToggle ? -6.2 : -5.5)
+
+                            // Torso
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(Color.teal)
+                                .frame(width: 5, height: 5)
+                                .offset(x: -2.5, y: 0)
+
+                            // Hands typing
+                            Circle()
+                                .fill(Color.yellow)
+                                .frame(width: 1.8, height: 1.8)
+                                .offset(x: typingToggle ? 1.2 : 0.4, y: typingToggle ? -0.8 : -0.2)
+                        }
+                    }
+                    .frame(width: 15, height: 16)
+                }
+
+                // 2. Bed (Empty if running, or Agent sleeping if idle)
+                ZStack(alignment: .bottomLeading) {
+                    // Headboard
+                    RoundedRectangle(cornerRadius: 1.2)
+                        .fill(Color.brown.opacity(0.85))
+                        .frame(width: 3, height: 10)
+                        .offset(x: 0, y: 0)
+
+                    // Bed Frame / Mattress
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: 12, height: 5.5)
+                        .offset(x: 2.2, y: 0)
+
+                    // Pillow
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.white)
+                        .frame(width: 3.5, height: 3)
+                        .offset(x: 3, y: -2.2)
+
+                    if isRunning {
+                        // EMPTY BED: Agent woke up and left bed to work!
+                        // Rumpled blanket at bottom of bed
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.cyan.opacity(0.55))
+                            .frame(width: 6, height: 3.5)
+                            .offset(x: 7.5, y: -0.5)
+                    } else {
+                        // SLEEPING AGENT IN BED
+                        // Head on pillow
+                        Circle()
+                            .fill(Color.yellow.opacity(0.9))
+                            .frame(width: 4.8, height: 4.8)
+                            .offset(x: 3.2, y: -2.6)
+
+                        // Closed eyes
+                        Rectangle()
+                            .fill(Color.black.opacity(0.65))
+                            .frame(width: 2.2, height: 0.7)
+                            .offset(x: 4.2, y: -2.6)
+
+                        // Breathing Blanket
+                        RoundedRectangle(cornerRadius: 1.2)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.indigo.opacity(0.8), Color.purple.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 8.5, height: typingToggle ? 5.0 : 4.0)
+                            .offset(x: 5.8, y: typingToggle ? -0.8 : 0)
+
+                        // Animated Floating Zzz
+                        let zOffset = CGFloat(step)
+                        Text(step == 0 ? "z" : (step == 1 ? "Z" : "z"))
+                            .font(.system(size: 6 + zOffset * 0.5, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.indigo.opacity(0.9 - Double(step) * 0.15))
+                            .offset(x: 8 + zOffset * 1.5, y: -7 - zOffset * 1.8)
+                    }
+                }
+                .frame(width: 15, height: 16)
+            }
+            .frame(width: isRunning ? 34 : 18, height: 18)
+        }
+    }
+}
+
 struct PopoverDashboardView: View {
     @ObservedObject var monitor: OllamaMonitor
 
@@ -1015,9 +1140,7 @@ struct PopoverDashboardView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .firstTextBaseline) {
                             HStack(spacing: 6) {
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 7, height: 7)
+                                AgentModelWorkBedView(isRunning: true)
                                 Text(m.name)
                                     .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                                     .lineLimit(1)
@@ -1286,9 +1409,7 @@ struct PopoverDashboardView: View {
                             let hint = OllamaMonitor.modelFootprintHint(item)
 
                             HStack(spacing: 8) {
-                                Circle()
-                                    .fill(isActive ? Color.green : Color.secondary.opacity(0.35))
-                                    .frame(width: 7, height: 7)
+                                AgentModelWorkBedView(isRunning: isActive)
 
                                 VStack(alignment: .leading, spacing: 1.5) {
                                     Text(item.name)
