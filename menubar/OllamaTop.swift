@@ -1024,21 +1024,22 @@ struct PopoverDashboardView: View {
             liquidGlassTabBar
             Divider().opacity(0.4)
 
-            ScrollView(.vertical, showsIndicators: true) {
+            if monitor.selectedTab == 0 {
                 VStack(alignment: .leading, spacing: 8) {
-                    if monitor.selectedTab == 0 {
-                        activeVRAMSection
-                        memoryAndHardwareSection
-                        telemetrySection
-                        antigravitySection
-                        installedModelsSection
-                    } else {
-                        SkillsDashboardView()
-                    }
+                    activeVRAMSection
+                    memoryAndHardwareSection
+                    telemetrySection
+                    antigravitySection
+                    installedModelsSection
                 }
                 .padding(.bottom, 2)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    SkillsDashboardView()
+                        .padding(.bottom, 2)
+                }
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
             }
-            .scrollEdgeEffectStyle(.soft, for: .bottom)
 
             if let banner = monitor.statusBanner {
                 HStack(spacing: 6) {
@@ -1059,7 +1060,7 @@ struct PopoverDashboardView: View {
             footerSection
         }
         .padding(12)
-        .frame(width: 385, height: 740)
+        .frame(width: 385, height: 860)
     }
 
     private var liquidGlassTabBar: some View {
@@ -1503,63 +1504,60 @@ struct PopoverDashboardView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 4)
             } else {
-                ScrollView(.vertical, showsIndicators: monitor.installedModels.count > 5) {
-                    VStack(spacing: 5) {
-                        ForEach(monitor.installedModels) { item in
-                            let isActive = monitor.activeModels.contains(where: { $0.name == item.name })
-                            let hint = OllamaMonitor.modelFootprintHint(item)
+                VStack(spacing: 5) {
+                    ForEach(monitor.installedModels) { item in
+                        let isActive = monitor.activeModels.contains(where: { $0.name == item.name })
+                        let hint = OllamaMonitor.modelFootprintHint(item)
 
-                            HStack(spacing: 8) {
-                                ModelBedStateView(isRunning: isActive)
+                        HStack(spacing: 8) {
+                            ModelBedStateView(isRunning: isActive)
 
-                                VStack(alignment: .leading, spacing: 1.5) {
-                                    Text(item.name)
-                                        .font(.system(size: 11.5, weight: isActive ? .bold : .medium, design: .monospaced))
-                                        .lineLimit(1)
-                                    Text(hint)
-                                        .font(.system(size: 9.5))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer()
-
-                                if monitor.busyModelName == item.name {
-                                    ProgressView()
-                                        .controlSize(.mini)
-                                        .padding(.horizontal, 8)
-                                } else if isActive {
-                                    Button("Unload") {
-                                        Task { await monitor.unloadModel(item.name) }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.red.opacity(0.14), in: Capsule())
-                                    .foregroundStyle(.red)
-                                } else {
-                                    Button("Load") {
-                                        Task { await monitor.warmLoadModel(item.name) }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 10, weight: .medium))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.primary.opacity(0.08), in: Capsule())
-                                    .foregroundStyle(.primary)
-                                }
+                            VStack(alignment: .leading, spacing: 1.5) {
+                                Text(item.name)
+                                    .font(.system(size: 11.5, weight: isActive ? .bold : .medium, design: .monospaced))
+                                    .lineLimit(1)
+                                Text(hint)
+                                    .font(.system(size: 9.5))
+                                    .foregroundStyle(.secondary)
                             }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5.5)
-                            .glassCard(
-                                cornerRadius: 8,
-                                tint: isActive ? .green : nil,
-                                tintOpacity: isActive ? 0.08 : 0.0
-                            )
+
+                            Spacer()
+
+                            if monitor.busyModelName == item.name {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .padding(.horizontal, 8)
+                            } else if isActive {
+                                Button("Unload") {
+                                    Task { await monitor.unloadModel(item.name) }
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.red.opacity(0.14), in: Capsule())
+                                .foregroundStyle(.red)
+                            } else {
+                                Button("Load") {
+                                    Task { await monitor.warmLoadModel(item.name) }
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .medium))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.primary.opacity(0.08), in: Capsule())
+                                .foregroundStyle(.primary)
+                            }
                         }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5.5)
+                        .glassCard(
+                            cornerRadius: 8,
+                            tint: isActive ? .green : nil,
+                            tintOpacity: isActive ? 0.08 : 0.0
+                        )
                     }
                 }
-                .frame(maxHeight: monitor.installedModels.count > 5 ? 315 : nil)
             }
         }
     }
