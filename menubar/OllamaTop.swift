@@ -1059,7 +1059,7 @@ struct PopoverDashboardView: View {
             footerSection
         }
         .padding(12)
-        .frame(width: 380, height: 600)
+        .frame(width: 385, height: 740)
     }
 
     private var liquidGlassTabBar: some View {
@@ -1671,184 +1671,184 @@ final class SkillsManager: ObservableObject {
             description: "Draws an interactive node-graph map of repo imports and HTTP endpoints."
         ),
         MarketplaceSkillItem(
-            id: "git-pr-workflow",
-            name: "Git PR Workflow Protocol",
-            repo: "squallbayu/git-pr-workflow",
-            url: "https://github.com/squallbayu/git-pr-workflow",
-            stars: "240★",
-            author: "Bayu Sanjaya",
-            tags: ["Git", "Governance"],
-            description: "Protects main/master by enforcing Issue -> Feature Branch -> PR lifecycle."
+            id: "superpowers",
+            name: "Superpowers Agent Skills",
+            repo: "obra/superpowers",
+            url: "https://github.com/obra/superpowers",
+            stars: "4.8k★",
+            author: "Jesse Vincent",
+            tags: ["Core", "TDD", "Debugging"],
+            description: "Complete agent skills library for systematic debugging, plans, and TDD."
+        ),
+        MarketplaceSkillItem(
+            id: "ui-ux-pro-max",
+            name: "UI/UX Pro Max Skill",
+            repo: "nextlevelbuilder/ui-ux-pro-max-skill",
+            url: "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+            stars: "3.2k★",
+            author: "NextLevelBuilder",
+            tags: ["Design", "UI/UX"],
+            description: "Design system guidance, responsive layouts, micro-interactions, and accessibility."
         ),
         MarketplaceSkillItem(
             id: "claude-mem",
             name: "Claude Persistent Memory",
-            repo: "anthropics/claude-mem",
-            url: "https://github.com/anthropics/claude-mem",
+            repo: "thedotmack/claude-mem",
+            url: "https://github.com/thedotmack/claude-mem",
             stars: "2.8k★",
-            author: "Anthropic Community",
+            author: "thedotmack",
             tags: ["Memory", "Vector RAG"],
             description: "Long-term episodic memory across agent sessions using local embeddings."
         ),
         MarketplaceSkillItem(
-            id: "commit-craft",
-            name: "CommitCraft AI",
-            repo: "developer/commit-craft",
-            url: "https://github.com/developer/commit-craft",
-            stars: "620★",
-            author: "DevCommunity",
-            tags: ["Git", "Conventional"],
-            description: "Automated conventional git commit message and changelog generator."
-        ),
-        MarketplaceSkillItem(
-            id: "test-synth",
-            name: "TestSynth Unit Generator",
-            repo: "developer/test-synth",
-            url: "https://github.com/developer/test-synth",
-            stars: "940★",
-            author: "QualityLabs",
-            tags: ["Testing", "PyTest"],
-            description: "Synthesizes comprehensive unit tests adhering to AAA pattern with edge cases."
-        ),
-        MarketplaceSkillItem(
-            id: "docker-scaffold",
-            name: "Docker & K8s Scaffold",
-            repo: "devops-ai/docker-scaffold",
-            url: "https://github.com/devops-ai/docker-scaffold",
-            stars: "1.5k★",
-            author: "CloudCraft",
-            tags: ["DevOps", "Containers"],
-            description: "Generates production multi-stage Dockerfiles and Helm charts with security scanning."
-        ),
-        MarketplaceSkillItem(
-            id: "security-auditor",
-            name: "Security & Secret Auditor",
-            repo: "sec-labs/security-auditor",
-            url: "https://github.com/sec-labs/security-auditor",
-            stars: "3.1k★",
-            author: "SecLabs",
-            tags: ["Security", "SAST"],
-            description: "Detects leaked credentials, OWASP vulnerabilities, and outdated CVEs in code."
-        ),
-        MarketplaceSkillItem(
-            id: "api-docgen",
-            name: "OpenAPI Spec & DocGen",
-            repo: "spec-tools/api-docgen",
-            url: "https://github.com/spec-tools/api-docgen",
-            stars: "780★",
-            author: "SpecTools",
-            tags: ["Documentation", "OpenAPI"],
-            description: "Extracts REST and gRPC endpoints directly into Swagger 3.0 and markdown guides."
-        ),
-        MarketplaceSkillItem(
-            id: "perf-profiler",
-            name: "Performance & Memory Profiler",
-            repo: "perf-ai/profiler-kit",
-            url: "https://github.com/perf-ai/profiler-kit",
-            stars: "1.1k★",
-            author: "PerfStudio",
-            tags: ["Performance", "Tracing"],
-            description: "Detects memory leaks, CPU hot spots, and N+1 query bottlenecks across runtimes."
-        ),
-        MarketplaceSkillItem(
-            id: "db-schema-migrator",
-            name: "DB Schema & Migration Assistant",
-            repo: "db-tools/schema-migrator",
-            url: "https://github.com/db-tools/schema-migrator",
-            stars: "1.3k★",
-            author: "DataCraft",
-            tags: ["Database", "SQL"],
-            description: "Designs PostgreSQL/MySQL schemas, indexes, and zero-downtime migration scripts."
-        ),
-        MarketplaceSkillItem(
-            id: "react-refactor",
-            name: "React 19 & Next.js Modernizer",
-            repo: "web-craft/react-modernizer",
-            url: "https://github.com/web-craft/react-modernizer",
-            stars: "2.4k★",
-            author: "WebCraft",
-            tags: ["Frontend", "React"],
-            description: "Converts legacy components to React Server Components and modern hooks."
-        ),
-        MarketplaceSkillItem(
-            id: "swiftui-inspector",
-            name: "SwiftUI & Apple HIG Inspector",
-            repo: "apple-dev/swiftui-inspector",
-            url: "https://github.com/apple-dev/swiftui-inspector",
-            stars: "890★",
-            author: "CupertinoHacks",
-            tags: ["macOS", "SwiftUI"],
-            description: "Enforces Human Interface Guidelines, Liquid Glass aesthetics, and VoiceOver support."
-        ),
-        MarketplaceSkillItem(
-            id: "i18n-localizer",
-            name: "Global i18n & Localization",
-            repo: "lingo-ai/i18n-assistant",
-            url: "https://github.com/lingo-ai/i18n-assistant",
-            stars: "560★",
-            author: "LingoAI",
-            tags: ["i18n", "Translation"],
-            description: "Automates translation key extraction, pluralization, and multilingual string catalogs."
-        ),
-        MarketplaceSkillItem(
-            id: "ci-cd-optimizer",
-            name: "GitHub Actions CI/CD Optimizer",
-            repo: "actions-pro/ci-optimizer",
-            url: "https://github.com/actions-pro/ci-optimizer",
-            stars: "1.7k★",
-            author: "DevOpsPro",
-            tags: ["CI/CD", "GitHub"],
-            description: "Speeds up build pipelines with cache strategies, matrices, and runner tuning."
-        ),
-        MarketplaceSkillItem(
-            id: "go-microservices",
-            name: "Go Clean Architecture & Micro",
-            repo: "gophers-guild/go-clean-arch",
-            url: "https://github.com/gophers-guild/go-clean-arch",
-            stars: "2.1k★",
-            author: "GopherGuild",
-            tags: ["Go", "Architecture"],
-            description: "Scaffolds idiomatic Go microservices with Hexagonal Architecture and structured logging."
-        ),
-        MarketplaceSkillItem(
-            id: "rust-safety-check",
-            name: "Rust Borrow & Unsafe Validator",
-            repo: "rustacean-tools/safety-guard",
-            url: "https://github.com/rustacean-tools/safety-guard",
+            id: "graphify",
+            name: "Graphify Knowledge Graph",
+            repo: "Graphify-Labs/graphify",
+            url: "https://github.com/Graphify-Labs/graphify",
             stars: "1.9k★",
-            author: "RustaceanTools",
-            tags: ["Rust", "Safety"],
-            description: "Audits unsafe blocks, lifetime annotations, and concurrency boundaries in Rust."
+            author: "Graphify Labs",
+            tags: ["KnowledgeGraph", "AST"],
+            description: "Extracts code relationships into graph databases for structural code reasoning."
         ),
         MarketplaceSkillItem(
-            id: "prompt-evaluator",
-            name: "Prompt Evaluator & Red Teamer",
-            repo: "llm-guard/prompt-eval",
-            url: "https://github.com/llm-guard/prompt-eval",
-            stars: "3.5k★",
-            author: "LLMGuard",
-            tags: ["LLM", "RedTeaming"],
-            description: "Tests LLM system prompts against injection attacks, jailbreaks, and hallucinations."
+            id: "gstack",
+            name: "GStack Engineering Protocols",
+            repo: "garrytan/gstack",
+            url: "https://github.com/garrytan/gstack",
+            stars: "2.4k★",
+            author: "Garry Tan",
+            tags: ["Engineering", "Startup"],
+            description: "Opinionated agent playbooks for fullstack development and fast iteration."
         ),
         MarketplaceSkillItem(
-            id: "rag-chunk-optimizer",
-            name: "RAG & Vector Chunk Optimizer",
-            repo: "vector-ai/chunk-optimizer",
-            url: "https://github.com/vector-ai/chunk-optimizer",
-            stars: "1.6k★",
-            author: "VectorLabs",
-            tags: ["RAG", "Embeddings"],
-            description: "Tunes semantic chunking windows, overlap, and reranking parameters for vector search."
+            id: "impeccable",
+            name: "Impeccable Code Style",
+            repo: "pbakaus/impeccable",
+            url: "https://github.com/pbakaus/impeccable",
+            stars: "1.5k★",
+            author: "Paul Bakaus",
+            tags: ["Linter", "CodeQuality"],
+            description: "High-bar frontend patterns, semantic HTML, and zero unnecessary dependencies."
         ),
         MarketplaceSkillItem(
-            id: "graphql-schema-lint",
-            name: "GraphQL Schema & Resolver Linter",
-            repo: "graphql-studio/schema-linter",
-            url: "https://github.com/graphql-studio/schema-linter",
-            stars: "670★",
-            author: "GraphQLStudio",
-            tags: ["GraphQL", "Linter"],
-            description: "Enforces federation best practices, deprecation lifecycles, and query depth limits."
+            id: "open-design",
+            name: "Open Design System",
+            repo: "nexu-io/open-design",
+            url: "https://github.com/nexu-io/open-design",
+            stars: "980★",
+            author: "Nexu",
+            tags: ["DesignTokens", "CSS"],
+            description: "Design tokens and component foundations for modern web and mobile apps."
+        ),
+        MarketplaceSkillItem(
+            id: "awesome-mcp-servers",
+            name: "Awesome MCP Hub",
+            repo: "punkpeye/awesome-mcp-servers",
+            url: "https://github.com/punkpeye/awesome-mcp-servers",
+            stars: "5.1k★",
+            author: "Punkpeye",
+            tags: ["MCP", "Integrations"],
+            description: "Curated catalog and discovery index for Model Context Protocol servers."
+        ),
+        MarketplaceSkillItem(
+            id: "understand-anything",
+            name: "Understand Anything",
+            repo: "Egonex-AI/Understand-Anything",
+            url: "https://github.com/Egonex-AI/Understand-Anything",
+            stars: "1.3k★",
+            author: "Egonex AI",
+            tags: ["Analysis", "ReverseEng"],
+            description: "Deep mental-model extraction for legacy repositories and complex systems."
+        ),
+        MarketplaceSkillItem(
+            id: "omniroute",
+            name: "OmniRoute LLM Router",
+            repo: "cheaper-inference/OmniRoute",
+            url: "https://github.com/cheaper-inference/OmniRoute",
+            stars: "1.1k★",
+            author: "Cheaper Inference",
+            tags: ["Routing", "CostReduction"],
+            description: "Routes user prompts dynamically between small fast and large reasoner LLMs."
+        ),
+        MarketplaceSkillItem(
+            id: "rtk",
+            name: "RTK Agent Toolkit",
+            repo: "rtk-ai/rtk",
+            url: "https://github.com/rtk-ai/rtk",
+            stars: "1.7k★",
+            author: "RTK AI",
+            tags: ["Tools", "Automation"],
+            description: "Collection of command-line tools and helper scripts optimized for agent calls."
+        ),
+        MarketplaceSkillItem(
+            id: "career-ops",
+            name: "CareerOps Developer Workflow",
+            repo: "career-ops-hq/career-ops",
+            url: "https://github.com/career-ops-hq/career-ops",
+            stars: "820★",
+            author: "CareerOps HQ",
+            tags: ["Workflow", "Portfolio"],
+            description: "Automated technical documentation and resume portfolio extraction from Git logs."
+        ),
+        MarketplaceSkillItem(
+            id: "codegraph",
+            name: "CodeGraph Structural Indexer",
+            repo: "colbymchenry/codegraph",
+            url: "https://github.com/colbymchenry/codegraph",
+            stars: "940★",
+            author: "Colby McHenry",
+            tags: ["AST", "Search"],
+            description: "Indexed call graphs and dependency hierarchies across multiple languages."
+        ),
+        MarketplaceSkillItem(
+            id: "claude-code-best-practice",
+            name: "Claude Code Best Practices",
+            repo: "shanraisshan/claude-code-best-practice",
+            url: "https://github.com/shanraisshan/claude-code-best-practice",
+            stars: "2.1k★",
+            author: "Shan Rais",
+            tags: ["BestPractices", "Prompting"],
+            description: "Community-curated system rules and prompt instructions for code agents."
+        ),
+        MarketplaceSkillItem(
+            id: "hindsight",
+            name: "Hindsight Post-Mortem AI",
+            repo: "vectorize-io/hindsight",
+            url: "https://github.com/vectorize-io/hindsight",
+            stars: "1.4k★",
+            author: "Vectorize",
+            tags: ["Observability", "PostMortem"],
+            description: "Synthesizes incident timelines, root causes, and remediation plans from logs."
+        ),
+        MarketplaceSkillItem(
+            id: "ppt-master",
+            name: "PPT Master Presentation Gen",
+            repo: "hugohe3/ppt-master",
+            url: "https://github.com/hugohe3/ppt-master",
+            stars: "3.7k★",
+            author: "Hugo He",
+            tags: ["Presentation", "Markdown"],
+            description: "Generates professional slide decks using Marp and HTML presentation formats."
+        ),
+        MarketplaceSkillItem(
+            id: "ecc-protocols",
+            name: "ECC Engineering Standards",
+            repo: "affaan-m/ECC",
+            url: "https://github.com/affaan-m/ECC",
+            stars: "1.8k★",
+            author: "Affaan Mustafa",
+            tags: ["Standards", "Review"],
+            description: "Automated PR reviews against clean code guidelines and security best practices."
+        ),
+        MarketplaceSkillItem(
+            id: "system-prompts-audit",
+            name: "System Prompts Audit",
+            repo: "asgeirtj/system_prompts_leaks",
+            url: "https://github.com/asgeirtj/system_prompts_leaks",
+            stars: "6.2k★",
+            author: "Asgeir",
+            tags: ["Safety", "RedTeaming"],
+            description: "Comprehensive dataset and audit rules for analyzing LLM system instructions."
         ),
     ]
 
@@ -1887,6 +1887,16 @@ final class SkillsManager: ObservableObject {
                         id: p,
                         name: sName.isEmpty ? p : sName,
                         description: sDesc.isEmpty ? "Custom Antigravity plugin skill" : sDesc,
+                        type: "Custom Plugin",
+                        isRemovable: true,
+                        path: pUrl.path
+                    ))
+                } else {
+                    // Plugin without standard skills/ dir or with top-level rules/prompts
+                    items.append(AntigravitySkillItem(
+                        id: p,
+                        name: p,
+                        description: "Custom Antigravity plugin / agent skills pack",
                         type: "Custom Plugin",
                         isRemovable: true,
                         path: pUrl.path
@@ -1938,8 +1948,22 @@ final class SkillsManager: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             let dest = NSString(string: "~/.gemini/config/plugins/\(id)").expandingTildeInPath
             try? FileManager.default.createDirectory(atPath: dest, withIntermediateDirectories: true)
-            let tarUrl = "https://github.com/\(item.repo)/archive/refs/heads/main.tar.gz"
-            let script = "curl -sL '\(tarUrl)' | tar -xz -C '\(dest)' --strip-components=1"
+            
+            // Try downloading from main or master branch tarball
+            let script = """
+            dest='\(dest)'
+            repo='\(item.repo)'
+            url_main="https://github.com/${repo}/archive/refs/heads/main.tar.gz"
+            url_master="https://github.com/${repo}/archive/refs/heads/master.tar.gz"
+
+            if curl -sL --fail "$url_main" | tar -xz -C "$dest" --strip-components=1 2>/dev/null; then
+                exit 0
+            elif curl -sL --fail "$url_master" | tar -xz -C "$dest" --strip-components=1 2>/dev/null; then
+                exit 0
+            else
+                exit 1
+            fi
+            """
 
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -2164,7 +2188,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 420)
+        .frame(maxHeight: 560)
     }
 
     private var marketplaceList: some View {
@@ -2242,7 +2266,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 420)
+        .frame(maxHeight: 560)
     }
 
     private func sectionHeader(title: String, icon: String) -> some View {
