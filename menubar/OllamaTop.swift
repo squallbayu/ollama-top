@@ -1059,7 +1059,7 @@ struct PopoverDashboardView: View {
             footerSection
         }
         .padding(12)
-        .frame(width: 380, height: 500)
+        .frame(width: 380, height: 600)
     }
 
     private var liquidGlassTabBar: some View {
@@ -1559,7 +1559,7 @@ struct PopoverDashboardView: View {
                         }
                     }
                 }
-                .frame(maxHeight: monitor.installedModels.count > 5 ? 215 : nil)
+                .frame(maxHeight: monitor.installedModels.count > 5 ? 315 : nil)
             }
         }
     }
@@ -1709,6 +1709,146 @@ final class SkillsManager: ObservableObject {
             author: "QualityLabs",
             tags: ["Testing", "PyTest"],
             description: "Synthesizes comprehensive unit tests adhering to AAA pattern with edge cases."
+        ),
+        MarketplaceSkillItem(
+            id: "docker-scaffold",
+            name: "Docker & K8s Scaffold",
+            repo: "devops-ai/docker-scaffold",
+            url: "https://github.com/devops-ai/docker-scaffold",
+            stars: "1.5k★",
+            author: "CloudCraft",
+            tags: ["DevOps", "Containers"],
+            description: "Generates production multi-stage Dockerfiles and Helm charts with security scanning."
+        ),
+        MarketplaceSkillItem(
+            id: "security-auditor",
+            name: "Security & Secret Auditor",
+            repo: "sec-labs/security-auditor",
+            url: "https://github.com/sec-labs/security-auditor",
+            stars: "3.1k★",
+            author: "SecLabs",
+            tags: ["Security", "SAST"],
+            description: "Detects leaked credentials, OWASP vulnerabilities, and outdated CVEs in code."
+        ),
+        MarketplaceSkillItem(
+            id: "api-docgen",
+            name: "OpenAPI Spec & DocGen",
+            repo: "spec-tools/api-docgen",
+            url: "https://github.com/spec-tools/api-docgen",
+            stars: "780★",
+            author: "SpecTools",
+            tags: ["Documentation", "OpenAPI"],
+            description: "Extracts REST and gRPC endpoints directly into Swagger 3.0 and markdown guides."
+        ),
+        MarketplaceSkillItem(
+            id: "perf-profiler",
+            name: "Performance & Memory Profiler",
+            repo: "perf-ai/profiler-kit",
+            url: "https://github.com/perf-ai/profiler-kit",
+            stars: "1.1k★",
+            author: "PerfStudio",
+            tags: ["Performance", "Tracing"],
+            description: "Detects memory leaks, CPU hot spots, and N+1 query bottlenecks across runtimes."
+        ),
+        MarketplaceSkillItem(
+            id: "db-schema-migrator",
+            name: "DB Schema & Migration Assistant",
+            repo: "db-tools/schema-migrator",
+            url: "https://github.com/db-tools/schema-migrator",
+            stars: "1.3k★",
+            author: "DataCraft",
+            tags: ["Database", "SQL"],
+            description: "Designs PostgreSQL/MySQL schemas, indexes, and zero-downtime migration scripts."
+        ),
+        MarketplaceSkillItem(
+            id: "react-refactor",
+            name: "React 19 & Next.js Modernizer",
+            repo: "web-craft/react-modernizer",
+            url: "https://github.com/web-craft/react-modernizer",
+            stars: "2.4k★",
+            author: "WebCraft",
+            tags: ["Frontend", "React"],
+            description: "Converts legacy components to React Server Components and modern hooks."
+        ),
+        MarketplaceSkillItem(
+            id: "swiftui-inspector",
+            name: "SwiftUI & Apple HIG Inspector",
+            repo: "apple-dev/swiftui-inspector",
+            url: "https://github.com/apple-dev/swiftui-inspector",
+            stars: "890★",
+            author: "CupertinoHacks",
+            tags: ["macOS", "SwiftUI"],
+            description: "Enforces Human Interface Guidelines, Liquid Glass aesthetics, and VoiceOver support."
+        ),
+        MarketplaceSkillItem(
+            id: "i18n-localizer",
+            name: "Global i18n & Localization",
+            repo: "lingo-ai/i18n-assistant",
+            url: "https://github.com/lingo-ai/i18n-assistant",
+            stars: "560★",
+            author: "LingoAI",
+            tags: ["i18n", "Translation"],
+            description: "Automates translation key extraction, pluralization, and multilingual string catalogs."
+        ),
+        MarketplaceSkillItem(
+            id: "ci-cd-optimizer",
+            name: "GitHub Actions CI/CD Optimizer",
+            repo: "actions-pro/ci-optimizer",
+            url: "https://github.com/actions-pro/ci-optimizer",
+            stars: "1.7k★",
+            author: "DevOpsPro",
+            tags: ["CI/CD", "GitHub"],
+            description: "Speeds up build pipelines with cache strategies, matrices, and runner tuning."
+        ),
+        MarketplaceSkillItem(
+            id: "go-microservices",
+            name: "Go Clean Architecture & Micro",
+            repo: "gophers-guild/go-clean-arch",
+            url: "https://github.com/gophers-guild/go-clean-arch",
+            stars: "2.1k★",
+            author: "GopherGuild",
+            tags: ["Go", "Architecture"],
+            description: "Scaffolds idiomatic Go microservices with Hexagonal Architecture and structured logging."
+        ),
+        MarketplaceSkillItem(
+            id: "rust-safety-check",
+            name: "Rust Borrow & Unsafe Validator",
+            repo: "rustacean-tools/safety-guard",
+            url: "https://github.com/rustacean-tools/safety-guard",
+            stars: "1.9k★",
+            author: "RustaceanTools",
+            tags: ["Rust", "Safety"],
+            description: "Audits unsafe blocks, lifetime annotations, and concurrency boundaries in Rust."
+        ),
+        MarketplaceSkillItem(
+            id: "prompt-evaluator",
+            name: "Prompt Evaluator & Red Teamer",
+            repo: "llm-guard/prompt-eval",
+            url: "https://github.com/llm-guard/prompt-eval",
+            stars: "3.5k★",
+            author: "LLMGuard",
+            tags: ["LLM", "RedTeaming"],
+            description: "Tests LLM system prompts against injection attacks, jailbreaks, and hallucinations."
+        ),
+        MarketplaceSkillItem(
+            id: "rag-chunk-optimizer",
+            name: "RAG & Vector Chunk Optimizer",
+            repo: "vector-ai/chunk-optimizer",
+            url: "https://github.com/vector-ai/chunk-optimizer",
+            stars: "1.6k★",
+            author: "VectorLabs",
+            tags: ["RAG", "Embeddings"],
+            description: "Tunes semantic chunking windows, overlap, and reranking parameters for vector search."
+        ),
+        MarketplaceSkillItem(
+            id: "graphql-schema-lint",
+            name: "GraphQL Schema & Resolver Linter",
+            repo: "graphql-studio/schema-linter",
+            url: "https://github.com/graphql-studio/schema-linter",
+            stars: "670★",
+            author: "GraphQLStudio",
+            tags: ["GraphQL", "Linter"],
+            description: "Enforces federation best practices, deprecation lifecycles, and query depth limits."
         ),
     ]
 
@@ -2024,7 +2164,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 320)
+        .frame(maxHeight: 420)
     }
 
     private var marketplaceList: some View {
@@ -2102,7 +2242,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 320)
+        .frame(maxHeight: 420)
     }
 
     private func sectionHeader(title: String, icon: String) -> some View {
