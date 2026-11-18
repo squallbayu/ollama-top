@@ -1019,24 +1019,21 @@ struct PopoverDashboardView: View {
     @Namespace private var tabGlassNamespace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             headerSection
             liquidGlassTabBar
             Divider().opacity(0.4)
 
             if monitor.selectedTab == 0 {
-                ScrollView(.vertical, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        activeVRAMSection
-                        memoryAndHardwareSection
-                        telemetrySection
-                        antigravitySection
-                        installedModelsSection
-                    }
-                    .padding(.bottom, 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    activeVRAMSection
+                    memoryAndHardwareSection
+                    telemetrySection
+                    antigravitySection
+                    installedModelsSection
                 }
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
-                .frame(maxHeight: .infinity)
+                .padding(.bottom, 2)
+                Spacer(minLength: 0)
             } else {
                 SkillsDashboardView()
                     .padding(.bottom, 2)
@@ -1054,15 +1051,15 @@ struct PopoverDashboardView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 9)
-                .padding(.vertical, 5)
+                .padding(.vertical, 4)
                 .background(Color.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
             }
 
             Divider().opacity(0.4)
             footerSection
         }
-        .padding(12)
-        .frame(width: 385, height: 620)
+        .padding(10)
+        .frame(width: 385, height: 730)
     }
 
     private var liquidGlassTabBar: some View {
