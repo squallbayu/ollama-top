@@ -498,7 +498,305 @@ def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, h
         lines.append(f"{BOLD}{YELLOW}Notice:{RESET} {banner_msg}")
 
     lines.append("─" * 74)
-    lines.append(f"{DIM}Keys: [u] Unload VRAM immediately  |  [r] Refresh  |  [q] Quit{RESET}")
+    lines.append(f"{DIM}Keys: [u] Unload VRAM immediately  |  [s] Skills Hub & Marketplace  |  [r] Refresh  |  [q] Quit{RESET}")
+
+    return "\n".join(lines)
+
+
+
+# ==============================================================================
+# ANTIGRAVITY SKILLS & GITHUB MARKETPLACE MODULE
+# ==============================================================================
+
+MARKETPLACE_CATALOG = [
+    {
+        "id": "ponytail",
+        "name": "Ponytail (Lazy Senior Dev)",
+        "repo": "DietrichGebert/ponytail",
+        "url": "https://github.com/DietrichGebert/ponytail",
+        "stars": "1.2k★",
+        "author": "Dietrich Gebert",
+        "tags": ["Optimization", "YAGNI", "Minimal Diff"],
+        "description": "Lazy senior dev mode: forces minimal code diffs, zero package bloat, standard libraries first.",
+    },
+    {
+        "id": "floorplan",
+        "name": "Floorplan Codebase Map",
+        "repo": "haydenschmitty/floorplan",
+        "url": "https://github.com/haydenschmitty/floorplan",
+        "stars": "850★",
+        "author": "Hayden Smith",
+        "tags": ["Visualizer", "Architecture", "HTML Map"],
+        "description": "Draws an interactive node-graph map of your repository imports and HTTP endpoints in index.html.",
+    },
+    {
+        "id": "git-pr-workflow",
+        "name": "Git PR Workflow Protocol",
+        "repo": "squallbayu/git-pr-workflow",
+        "url": "https://github.com/squallbayu/git-pr-workflow",
+        "stars": "240★",
+        "author": "Bayu Sanjaya",
+        "tags": ["Git", "GitHub CLI", "Governance"],
+        "description": "Protects main/master branches by enforcing Issue -> Feature Branch -> Pull Request lifecycle.",
+    },
+    {
+        "id": "claude-mem",
+        "name": "Claude Persistent Memory",
+        "repo": "anthropics/claude-mem",
+        "url": "https://github.com/anthropics/claude-mem",
+        "stars": "2.8k★",
+        "author": "Anthropic Community",
+        "tags": ["Memory", "Vector RAG", "Context"],
+        "description": "Long-term episodic memory across agent sessions using local vector embeddings.",
+    },
+    {
+        "id": "commit-craft",
+        "name": "CommitCraft AI",
+        "repo": "developer/commit-craft",
+        "url": "https://github.com/developer/commit-craft",
+        "stars": "620★",
+        "author": "DevCommunity",
+        "tags": ["Git", "Conventional Commits"],
+        "description": "Automated conventional git commit message and changelog generator based on staged diffs.",
+    },
+    {
+        "id": "test-synth",
+        "name": "TestSynth Unit Generator",
+        "repo": "developer/test-synth",
+        "url": "https://github.com/developer/test-synth",
+        "stars": "940★",
+        "author": "QualityLabs",
+        "tags": ["Testing", "PyTest", "Jest", "Go"],
+        "description": "Synthesizes comprehensive unit tests adhering to AAA (Arrange-Act-Assert) pattern with edge cases.",
+    },
+]
+
+
+def parse_skill_frontmatter(file_path: str):
+    """Extract name and description from SKILL.md YAML frontmatter."""
+    name = os.path.basename(os.path.dirname(file_path))
+    desc = ""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+        in_fm = False
+        desc_lines = []
+        in_desc = False
+        for line in lines:
+            sline = line.strip()
+            if sline == "---":
+                if not in_fm:
+                    in_fm = True
+                    continue
+                else:
+                    break
+            if in_fm:
+                if sline.startswith("name:"):
+                    name = sline.split("name:", 1)[1].strip().strip("\"'")
+                    in_desc = False
+                elif sline.startswith("description:"):
+                    val = sline.split("description:", 1)[1].strip()
+                    if val in (">", ">-", "|", "|-"):
+                        in_desc = True
+                    else:
+                        desc = val.strip("\"'")
+                        in_desc = False
+                elif in_desc:
+                    if line.startswith(" ") or line.startswith("\t"):
+                        desc_lines.append(sline)
+                    else:
+                        in_desc = False
+        if desc_lines:
+            desc = " ".join(desc_lines)
+    except Exception:
+        pass
+    return name, desc
+
+
+def discover_antigravity_skills():
+    """Discover all installed skills across ~/.gemini config and built-in paths."""
+    skills = []
+    # 1. Custom / Third-party plugins
+    plugins_dir = os.path.expanduser("~/.gemini/config/plugins")
+    if os.path.exists(plugins_dir):
+        for pl in sorted(os.listdir(plugins_dir)):
+            p_dir = os.path.join(plugins_dir, pl)
+            if not os.path.isdir(p_dir):
+                continue
+            sm = os.path.join(p_dir, "skills", pl, "SKILL.md")
+            if not os.path.exists(sm):
+                s_parent = os.path.join(p_dir, "skills")
+                if os.path.exists(s_parent):
+                    for sub in os.listdir(s_parent):
+                        cand = os.path.join(s_parent, sub, "SKILL.md")
+                        if os.path.exists(cand):
+                            sm = cand
+                            break
+            if os.path.exists(sm):
+                name, desc = parse_skill_frontmatter(sm)
+                skills.append({
+                    "id": pl,
+                    "name": name or pl,
+                    "description": desc or "Custom Antigravity plugin skill",
+                    "type": "Custom Plugin",
+                    "removable": True,
+                    "path": p_dir,
+                    "skill_file": sm,
+                })
+            else:
+                # Plugin without SKILL.md (e.g. rule-only plugin like git-pr-workflow)
+                pj = os.path.join(p_dir, "plugin.json")
+                p_desc = "Custom Antigravity plugin"
+                if os.path.exists(pj):
+                    try:
+                        with open(pj, "r") as f_pj:
+                            p_desc = json.load(f_pj).get("description", p_desc)
+                    except Exception: pass
+                skills.append({
+                    "id": pl,
+                    "name": pl,
+                    "description": p_desc,
+                    "type": "Custom Plugin",
+                    "removable": True,
+                    "path": p_dir,
+                    "skill_file": pj,
+                })
+
+    # 2. Builtin skills
+    builtin_dirs = [
+        os.path.expanduser("~/.gemini/antigravity-cli/builtin/skills"),
+        os.path.expanduser("~/.gemini/antigravity/builtin/skills"),
+    ]
+    seen_builtins = set()
+    for b_dir in builtin_dirs:
+        if not os.path.exists(b_dir):
+            continue
+        for s in sorted(os.listdir(b_dir)):
+            if s in seen_builtins:
+                continue
+            sm = os.path.join(b_dir, s, "SKILL.md")
+            if os.path.exists(sm):
+                seen_builtins.add(s)
+                name, desc = parse_skill_frontmatter(sm)
+                skills.append({
+                    "id": s,
+                    "name": name or s,
+                    "description": desc or "Built-in Antigravity runtime skill",
+                    "type": "Built-in",
+                    "removable": False,
+                    "path": os.path.join(b_dir, s),
+                    "skill_file": sm,
+                })
+
+    return skills
+
+
+def install_marketplace_skill(skill_id: str) -> tuple[bool, str]:
+    """Download and unpack a skill from GitHub into ~/.gemini/config/plugins/<id>."""
+    match = next((item for item in MARKETPLACE_CATALOG if item["id"] == skill_id), None)
+    if not match:
+        return False, f"Skill '{skill_id}' not found in marketplace catalog."
+
+    dest_dir = os.path.expanduser(f"~/.gemini/config/plugins/{skill_id}")
+    if os.path.exists(dest_dir):
+        return False, f"Skill '{skill_id}' is already installed at {dest_dir}."
+
+    os.makedirs(dest_dir, exist_ok=True)
+    tarball_url = f"https://github.com/{match['repo']}/archive/refs/heads/main.tar.gz"
+
+    cmd = f"curl -sL '{tarball_url}' | tar -xz -C '{dest_dir}' --strip-components=1"
+    res = os.system(cmd)
+    if res == 0:
+        return True, f"Successfully installed '{match['name']}' from GitHub!"
+    else:
+        # Cleanup on failure
+        os.system(f"rm -rf '{dest_dir}'")
+        return False, f"Failed to download from {tarball_url} (Exit {res})."
+
+
+def remove_custom_skill(skill_id: str) -> tuple[bool, str]:
+    """Safely uninstall a custom plugin skill from ~/.gemini/config/plugins/<id>."""
+    dest_dir = os.path.expanduser(f"~/.gemini/config/plugins/{skill_id}")
+    if not os.path.exists(dest_dir):
+        return False, f"Skill '{skill_id}' does not exist in custom plugins."
+
+    # Safety check: never delete outside config/plugins
+    if not dest_dir.startswith(os.path.expanduser("~/.gemini/config/plugins/")):
+        return False, "Security check failed: Refusing to delete outside ~/.gemini/config/plugins/."
+
+    res = os.system(f"rm -rf '{dest_dir}'")
+    if res == 0:
+        return True, f"Successfully removed skill '{skill_id}'."
+    return False, f"Failed to delete directory {dest_dir}."
+
+
+def render_skills_dashboard(banner_msg: str = "") -> str:
+    """Render full ASCII view of Installed Skills, Marketplace, and Statistics."""
+    skills = discover_antigravity_skills()
+    custom_skills = [s for s in skills if s["type"] == "Custom Plugin"]
+    builtin_skills = [s for s in skills if s["type"] == "Built-in"]
+
+    # Calculate total size of custom plugins
+    total_bytes = 0
+    for cs in custom_skills:
+        for root, _, files in os.walk(cs["path"]):
+            for f in files:
+                try:
+                    total_bytes += os.path.getsize(os.path.join(root, f))
+                except Exception:
+                    pass
+    mb_used = total_bytes / (1024 * 1024)
+
+    lines = []
+    lines.append(f"{BOLD}{CYAN}=== ANTIGRAVITY SKILLS HUB & GITHUB MARKETPLACE ==={RESET}")
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines.append(f"{DIM}Total Active Skills: {BOLD}{WHITE}{len(skills)}{RESET} | {DIM}Plugins: {BOLD}{GREEN}{len(custom_skills)}{RESET} | {DIM}Built-ins: {BOLD}{BLUE}{len(builtin_skills)}{RESET} | {DIM}Storage: {BOLD}{YELLOW}{mb_used:.1f} MB{RESET} | {DIM}{now_str}{RESET}")
+    lines.append("─" * 74)
+
+    if banner_msg:
+        lines.append(f"{GREEN}▶ {banner_msg}{RESET}")
+        lines.append("─" * 74)
+
+    # Section 1: Installed Skills
+    lines.append(f"{BOLD}{WHITE}MY INSTALLED SKILLS ({len(skills)}){RESET}")
+    lines.append(f"{DIM}{'SKILL':<22} {'TYPE':<16} {'ACTION':<10} {'DESCRIPTION'}{RESET}")
+    lines.append("┄" * 74)
+
+    installed_ids = {s["id"] for s in skills}
+
+    for s in custom_skills:
+        desc = s["description"]
+        if len(desc) > 32:
+            desc = desc[:29] + "..."
+        btn = f"{RED}[Remove]{RESET}"
+        lines.append(f"{GREEN}● {s['name']:<20}{RESET} {YELLOW}{s['type']:<16}{RESET} {btn:<10} {DIM}{desc}{RESET}")
+
+    for s in builtin_skills:
+        desc = s["description"]
+        if len(desc) > 32:
+            desc = desc[:29] + "..."
+        btn = f"{DIM}🔒 Built-in{RESET}"
+        lines.append(f"{BLUE}● {s['name']:<20}{RESET} {DIM}{s['type']:<16}{RESET} {btn:<10} {DIM}{desc}{RESET}")
+
+    lines.append("─" * 74)
+
+    # Section 2: GitHub Skill Marketplace
+    lines.append(f"{BOLD}{MAGENTA}GITHUB SKILL MARKETPLACE (COMMUNITY HUB){RESET}")
+    lines.append(f"{DIM}{'NAME & REPO':<32} {'STARS':<8} {'STATUS':<12} {'TAGS'}{RESET}")
+    lines.append("┄" * 74)
+
+    for item in MARKETPLACE_CATALOG:
+        is_inst = item["id"] in installed_ids
+        status_badge = f"{GREEN}✓ Installed{RESET}" if is_inst else f"{CYAN}+ [Install]{RESET}"
+        tags_str = ", ".join(item["tags"][:2])
+        lines.append(f"{BOLD}{item['name']:<32}{RESET} {YELLOW}{item['stars']:<8}{RESET} {status_badge:<12} {DIM}{tags_str}{RESET}")
+        desc = item["description"]
+        if len(desc) > 70:
+            desc = desc[:67] + "..."
+        lines.append(f"  {DIM}└─ {desc} ({item['url']}){RESET}")
+
+    lines.append("─" * 74)
+    lines.append(f"{DIM}Keys: [m] Back to Models Monitor  |  [i] Install Skill  |  [d] Delete/Remove Skill  |  [q] Quit{RESET}")
 
     return "\n".join(lines)
 
@@ -506,8 +804,25 @@ def render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, h
 def main():
     parser = argparse.ArgumentParser(description="Monitor Ollama and Apple Silicon hardware usage.")
     parser.add_argument("--once", action="store_true", help="Print stats once and exit.")
+    parser.add_argument("--skills", action="store_true", help="Print Antigravity Skills Hub & Marketplace catalog once and exit.")
+    parser.add_argument("--install", metavar="SKILL_ID", help="Install a skill from GitHub marketplace into ~/.gemini/config/plugins/.")
+    parser.add_argument("--remove", metavar="SKILL_ID", help="Remove an installed custom skill from ~/.gemini/config/plugins/.")
     parser.add_argument("-i", "--interval", type=float, default=1.5, help="Refresh interval in seconds (default: 1.5).")
     args = parser.parse_args()
+
+    if args.install:
+        ok, msg = install_marketplace_skill(args.install)
+        print((GREEN if ok else RED) + msg + RESET)
+        sys.exit(0 if ok else 1)
+
+    if args.remove:
+        ok, msg = remove_custom_skill(args.remove)
+        print((GREEN if ok else RED) + msg + RESET)
+        sys.exit(0 if ok else 1)
+
+    if args.skills:
+        print(render_skills_dashboard())
+        return
 
     hw_info = get_hardware_info()
 
@@ -535,20 +850,24 @@ def main():
     sys.stdout.write(HIDE_CURSOR)
     banner_msg = ""
     banner_expiry = 0.0
+    active_view = "models"  # "models" or "skills"
 
     try:
         while True:
-            ps_data = fetch_api("/api/ps")
-            version_data = fetch_api("/api/version")
-            tags_data = fetch_api("/api/tags")
-            mem_stats = get_system_memory()
-            log_metrics = get_recent_metrics_from_log()
-            ag_stats = get_antigravity_telemetry()
-
             if time.time() > banner_expiry:
                 banner_msg = ""
 
-            content = render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, ag_stats, banner_msg)
+            if active_view == "skills":
+                content = render_skills_dashboard(banner_msg)
+            else:
+                ps_data = fetch_api("/api/ps")
+                version_data = fetch_api("/api/version")
+                tags_data = fetch_api("/api/tags")
+                mem_stats = get_system_memory()
+                log_metrics = get_recent_metrics_from_log()
+                ag_stats = get_antigravity_telemetry()
+                content = render_dashboard(ps_data, version_data, tags_data, mem_stats, log_metrics, hw_info, ag_stats, banner_msg)
+
             sys.stdout.write(CLEAR_SCREEN + content + "\n")
             sys.stdout.flush()
 
@@ -557,6 +876,14 @@ def main():
                 ch = sys.stdin.read(1).lower()
                 if ch in ("q", "\x03"):
                     break
+                elif ch == "s":
+                    active_view = "skills"
+                    banner_msg = "Viewing Antigravity Skills Hub."
+                    banner_expiry = time.time() + 2.0
+                elif ch == "m":
+                    active_view = "models"
+                    banner_msg = "Viewing Models & System Monitor."
+                    banner_expiry = time.time() + 2.0
                 elif ch == "u":
                     _, msg = unload_active_models()
                     banner_msg = msg
@@ -579,3 +906,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

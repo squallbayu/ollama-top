@@ -1024,6 +1024,7 @@ struct PopoverDashboardView: View {
             memoryAndHardwareSection
             telemetrySection
             antigravitySection
+            SkillsDashboardView()
             installedModelsSection
 
             if let banner = monitor.statusBanner {
@@ -1543,6 +1544,430 @@ struct PopoverDashboardView: View {
     }
 }
 
+
+// MARK: - Antigravity Skills & GitHub Marketplace Component
+
+struct AntigravitySkillItem: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let description: String
+    let type: String
+    let isRemovable: Bool
+    let path: String
+}
+
+struct MarketplaceSkillItem: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let repo: String
+    let url: String
+    let stars: String
+    let author: String
+    let tags: [String]
+    let description: String
+}
+
+final class SkillsManager: ObservableObject {
+    @Published var installedSkills: [AntigravitySkillItem] = []
+    @Published var selectedTab: Int = 0
+    @Published var isWorking: Bool = false
+    @Published var actionMessage: String? = nil
+
+    static let shared = SkillsManager()
+
+    let catalog: [MarketplaceSkillItem] = [
+        MarketplaceSkillItem(
+            id: "ponytail",
+            name: "Ponytail (Lazy Senior Dev)",
+            repo: "DietrichGebert/ponytail",
+            url: "https://github.com/DietrichGebert/ponytail",
+            stars: "1.2k★",
+            author: "Dietrich Gebert",
+            tags: ["Optimization", "Minimal Diff"],
+            description: "Forces minimal code diffs, zero package bloat, standard libraries first."
+        ),
+        MarketplaceSkillItem(
+            id: "floorplan",
+            name: "Floorplan Codebase Map",
+            repo: "haydenschmitty/floorplan",
+            url: "https://github.com/haydenschmitty/floorplan",
+            stars: "850★",
+            author: "Hayden Smith",
+            tags: ["Visualizer", "Architecture"],
+            description: "Draws an interactive node-graph map of repo imports and HTTP endpoints."
+        ),
+        MarketplaceSkillItem(
+            id: "git-pr-workflow",
+            name: "Git PR Workflow Protocol",
+            repo: "squallbayu/git-pr-workflow",
+            url: "https://github.com/squallbayu/git-pr-workflow",
+            stars: "240★",
+            author: "Bayu Sanjaya",
+            tags: ["Git", "Governance"],
+            description: "Protects main/master by enforcing Issue -> Feature Branch -> PR lifecycle."
+        ),
+        MarketplaceSkillItem(
+            id: "claude-mem",
+            name: "Claude Persistent Memory",
+            repo: "anthropics/claude-mem",
+            url: "https://github.com/anthropics/claude-mem",
+            stars: "2.8k★",
+            author: "Anthropic Community",
+            tags: ["Memory", "Vector RAG"],
+            description: "Long-term episodic memory across agent sessions using local embeddings."
+        ),
+        MarketplaceSkillItem(
+            id: "commit-craft",
+            name: "CommitCraft AI",
+            repo: "developer/commit-craft",
+            url: "https://github.com/developer/commit-craft",
+            stars: "620★",
+            author: "DevCommunity",
+            tags: ["Git", "Conventional"],
+            description: "Automated conventional git commit message and changelog generator."
+        ),
+        MarketplaceSkillItem(
+            id: "test-synth",
+            name: "TestSynth Unit Generator",
+            repo: "developer/test-synth",
+            url: "https://github.com/developer/test-synth",
+            stars: "940★",
+            author: "QualityLabs",
+            tags: ["Testing", "PyTest"],
+            description: "Synthesizes comprehensive unit tests adhering to AAA pattern with edge cases."
+        ),
+    ]
+
+    init() {
+        refreshSkills()
+    }
+
+    func refreshSkills() {
+        let fm = FileManager.default
+        var items: [AntigravitySkillItem] = []
+
+        // 1. Custom Plugins
+        let pluginsPath = NSString(string: "~/.gemini/config/plugins").expandingTildeInPath
+        if let plugins = try? fm.contentsOfDirectory(atPath: pluginsPath) {
+            for p in plugins.sorted() {
+                let pUrl = URL(fileURLWithPath: pluginsPath).appendingPathComponent(p)
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: pUrl.path, isDirectory: &isDir), isDir.boolValue else { continue }
+
+                var skillUrl = pUrl.appendingPathComponent("skills/\(p)/SKILL.md")
+                if !fm.fileExists(atPath: skillUrl.path) {
+                    let skillsSub = pUrl.appendingPathComponent("skills")
+                    if let subDirs = try? fm.contentsOfDirectory(atPath: skillsSub.path) {
+                        for sub in subDirs {
+                            let cand = skillsSub.appendingPathComponent("\(sub)/SKILL.md")
+                            if fm.fileExists(atPath: cand.path) {
+                                skillUrl = cand
+                                break
+                            }
+                        }
+                    }
+                }
+                if fm.fileExists(atPath: skillUrl.path) {
+                    let (sName, sDesc) = Self.parseSkillFrontmatter(at: skillUrl)
+                    items.append(AntigravitySkillItem(
+                        id: p,
+                        name: sName.isEmpty ? p : sName,
+                        description: sDesc.isEmpty ? "Custom Antigravity plugin skill" : sDesc,
+                        type: "Custom Plugin",
+                        isRemovable: true,
+                        path: pUrl.path
+                    ))
+                }
+            }
+        }
+
+        // 2. Builtin
+        let builtinPaths = [
+            NSString(string: "~/.gemini/antigravity-cli/builtin/skills").expandingTildeInPath,
+            NSString(string: "~/.gemini/antigravity/builtin/skills").expandingTildeInPath
+        ]
+        var seen = Set<String>()
+        for bPath in builtinPaths {
+            guard let list = try? fm.contentsOfDirectory(atPath: bPath) else { continue }
+            for s in list.sorted() {
+                if seen.contains(s) { continue }
+                let sUrl = URL(fileURLWithPath: bPath).appendingPathComponent("\(s)/SKILL.md")
+                if fm.fileExists(atPath: sUrl.path) {
+                    seen.insert(s)
+                    let (sName, sDesc) = Self.parseSkillFrontmatter(at: sUrl)
+                    items.append(AntigravitySkillItem(
+                        id: s,
+                        name: sName.isEmpty ? s : sName,
+                        description: sDesc.isEmpty ? "Built-in Antigravity runtime skill" : sDesc,
+                        type: "Built-in",
+                        isRemovable: false,
+                        path: sUrl.deletingLastPathComponent().path
+                    ))
+                }
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.installedSkills = items
+        }
+    }
+
+    func isInstalled(_ id: String) -> Bool {
+        installedSkills.contains(where: { $0.id == id })
+    }
+
+    func installSkill(id: String) {
+        guard let item = catalog.first(where: { $0.id == id }) else { return }
+        isWorking = true
+        actionMessage = "Installing \(item.name)..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = NSString(string: "~/.gemini/config/plugins/\(id)").expandingTildeInPath
+            try? FileManager.default.createDirectory(atPath: dest, withIntermediateDirectories: true)
+            let tarUrl = "https://github.com/\(item.repo)/archive/refs/heads/main.tar.gz"
+            let script = "curl -sL '\(tarUrl)' | tar -xz -C '\(dest)' --strip-components=1"
+
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/sh")
+            proc.arguments = ["-c", script]
+            try? proc.run()
+            proc.waitUntilExit()
+            let status = proc.terminationStatus
+
+            DispatchQueue.main.async {
+                self.isWorking = false
+                if status == 0 {
+                    self.actionMessage = "Installed \(item.name)!"
+                } else {
+                    try? FileManager.default.removeItem(atPath: dest)
+                    self.actionMessage = "Failed to install \(item.name)"
+                }
+                self.refreshSkills()
+            }
+        }
+    }
+
+    func removeSkill(id: String) {
+        guard let item = installedSkills.first(where: { $0.id == id && $0.isRemovable }) else { return }
+        isWorking = true
+        actionMessage = "Removing \(item.name)..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = NSString(string: "~/.gemini/config/plugins/\(id)").expandingTildeInPath
+            try? FileManager.default.removeItem(atPath: dest)
+
+            DispatchQueue.main.async {
+                self.isWorking = false
+                self.actionMessage = "Removed \(item.name)"
+                self.refreshSkills()
+            }
+        }
+    }
+
+    private static func parseSkillFrontmatter(at url: URL) -> (name: String, desc: String) {
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return (url.deletingLastPathComponent().lastPathComponent, "")
+        }
+        let lines = content.components(separatedBy: .newlines)
+        var inFM = false
+        var name = url.deletingLastPathComponent().lastPathComponent
+        var descLines: [String] = []
+        var inDesc = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" {
+                if !inFM {
+                    inFM = true
+                    continue
+                } else {
+                    break
+                }
+            }
+            if inFM {
+                if trimmed.hasPrefix("name:") {
+                    let parts = trimmed.components(separatedBy: "name:")
+                    if parts.count > 1 {
+                        name = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+                    }
+                    inDesc = false
+                } else if trimmed.hasPrefix("description:") {
+                    let val = trimmed.replacingOccurrences(of: "description:", with: "").trimmingCharacters(in: .whitespaces)
+                    if val == ">" || val == ">-" || val == "|" || val == "|-" {
+                        inDesc = true
+                    } else {
+                        descLines = [val.trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))]
+                        inDesc = false
+                    }
+                } else if inDesc {
+                    if line.hasPrefix(" ") || line.hasPrefix("\t") {
+                        descLines.append(trimmed)
+                    } else {
+                        inDesc = false
+                    }
+                }
+            }
+        }
+        return (name, descLines.joined(separator: " "))
+    }
+}
+
+struct SkillsDashboardView: View {
+    @ObservedObject var skillsMgr = SkillsManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                sectionHeader(title: "Antigravity Skills", icon: "sparkles")
+                Spacer()
+
+                Picker("", selection: $skillsMgr.selectedTab) {
+                    Text("Installed (\(skillsMgr.installedSkills.count))").tag(0)
+                    Text("Marketplace").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 160)
+            }
+
+            if let msg = skillsMgr.actionMessage {
+                HStack(spacing: 5) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.teal)
+                        .font(.system(size: 10))
+                    Text(msg)
+                        .font(.system(size: 9.5, weight: .medium))
+                    Spacer()
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .background(Color.teal.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+            }
+
+            if skillsMgr.selectedTab == 0 {
+                installedList
+            } else {
+                marketplaceList
+            }
+        }
+    }
+
+    private var installedList: some View {
+        ScrollView(.vertical, showsIndicators: skillsMgr.installedSkills.count > 4) {
+            VStack(spacing: 5) {
+                ForEach(skillsMgr.installedSkills) { skill in
+                    HStack(spacing: 6) {
+                        Image(systemName: skill.isRemovable ? "puzzlepiece.extension.fill" : "lock.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(skill.isRemovable ? Color.green : Color.blue)
+                            .frame(width: 14)
+
+                        VStack(alignment: .leading, spacing: 1.5) {
+                            HStack(spacing: 4) {
+                                Text(skill.name)
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                Text(skill.type)
+                                    .font(.system(size: 8.5))
+                                    .foregroundStyle(skill.isRemovable ? Color.green : Color.secondary)
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 0.5)
+                                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                            }
+                            Text(skill.description)
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        if skill.isRemovable {
+                            Button("Remove") {
+                                skillsMgr.removeSkill(id: skill.id)
+                            }
+                            .font(.system(size: 9.5, weight: .medium))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
+                            .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
+                            .disabled(skillsMgr.isWorking)
+                        }
+                    }
+                    .padding(6)
+                    .glassCard(cornerRadius: 7)
+                }
+            }
+        }
+        .frame(maxHeight: 120)
+    }
+
+    private var marketplaceList: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 5) {
+                ForEach(skillsMgr.catalog) { item in
+                    let isInst = skillsMgr.isInstalled(item.id)
+                    HStack(spacing: 6) {
+                        VStack(alignment: .leading, spacing: 1.5) {
+                            HStack(spacing: 4) {
+                                Text(item.name)
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                Text(item.stars)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.orange)
+                            }
+                            Text(item.description)
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        if isInst {
+                            HStack(spacing: 2) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 8, weight: .bold))
+                                Text("Active")
+                                    .font(.system(size: 9))
+                            }
+                            .foregroundStyle(.green)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.12), in: Capsule())
+                        } else {
+                            Button("Install") {
+                                skillsMgr.installSkill(id: item.id)
+                            }
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
+                            .background(Color.teal, in: RoundedRectangle(cornerRadius: 4))
+                            .disabled(skillsMgr.isWorking)
+                        }
+                    }
+                    .padding(6)
+                    .glassCard(cornerRadius: 7)
+                }
+            }
+        }
+        .frame(maxHeight: 120)
+    }
+
+    private func sectionHeader(title: String, icon: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+
 // MARK: - Custom Control-Center Style Panel & Hosting View
 
 final class PinnedTopHostingView<Content: View>: NSHostingView<Content> {
@@ -1696,7 +2121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func captureScreenshotNotification(_ sender: AnyObject?) {
-        guard let targetView = effectView else { return }
+        guard effectView != nil else { return }
         if !panel.isVisible {
             openPanelBelowMenuBar()
         }
