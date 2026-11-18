@@ -467,6 +467,7 @@ final class OllamaMonitor: ObservableObject {
     @Published var lastRequest: String = "-"
 
     @Published var antigravity: AntigravityStats = AntigravityStats()
+    @Published var selectedTab: Int = 0 // 0: Models & System, 1: Skills Hub
 
     @Published var busyModelName: String? = nil
     @Published var isTogglingDaemon: Bool = false
@@ -1015,16 +1016,29 @@ struct ModelBedStateView: View {
 
 struct PopoverDashboardView: View {
     @ObservedObject var monitor: OllamaMonitor
+    @Namespace private var tabGlassNamespace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 6) {
             headerSection
-            Divider().opacity(0.5)
-            activeVRAMSection
-            memoryAndHardwareSection
-            telemetrySection
-            antigravitySection
-            installedModelsSection
+            liquidGlassTabBar
+            Divider().opacity(0.4)
+
+            if monitor.selectedTab == 0 {
+                VStack(alignment: .leading, spacing: 6) {
+                    activeVRAMSection
+                    memoryAndHardwareSection
+                    telemetrySection
+                    antigravitySection
+                    installedModelsSection
+                }
+                .padding(.bottom, 2)
+                Spacer(minLength: 0)
+            } else {
+                SkillsDashboardView()
+                    .padding(.bottom, 2)
+                    .frame(maxHeight: .infinity)
+            }
 
             if let banner = monitor.statusBanner {
                 HStack(spacing: 6) {
@@ -1037,15 +1051,77 @@ struct PopoverDashboardView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 9)
-                .padding(.vertical, 5)
+                .padding(.vertical, 4)
                 .background(Color.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
             }
 
-            Divider().opacity(0.5)
+            Divider().opacity(0.4)
             footerSection
         }
-        .padding(12)
-        .frame(width: 380)
+        .padding(10)
+        .frame(width: 385)
+        .frame(minHeight: monitor.selectedTab == 0 ? nil : 600)
+    }
+
+    private var liquidGlassTabBar: some View {
+        // GlassEffectContainer defines a shared glass sampling region
+        // to prevent double-refraction and specular highlight clipping
+        GlassEffectContainer {
+            HStack(spacing: 6) {
+                liquidTabItem(
+                    index: 0,
+                    label: "Models & System",
+                    icon: "cpu.fill"
+                )
+
+                liquidTabItem(
+                    index: 1,
+                    label: "Skills Hub",
+                    icon: "sparkles"
+                )
+            }
+            .padding(4)
+            // Outer shared Liquid Glass capsule container
+            .glassEffect(.regular, in: .capsule)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func liquidTabItem(index: Int, label: String, icon: String) -> some View {
+        let isSelected = monitor.selectedTab == index
+
+        return Button {
+            withAnimation(.snappy(duration: 0.28, extraBounce: 0.06)) {
+                monitor.selectedTab = index
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
+
+                if isSelected {
+                    Text(label)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+            }
+            .padding(.horizontal, isSelected ? 12 : 9)
+            .padding(.vertical, 5.5)
+            .contentShape(Capsule())
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.teal.opacity(0.85))
+                        // .interactive() provides hover tracking & specular reflections
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .matchedGeometryEffect(id: "activeLiquidTab", in: tabGlassNamespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var headerSection: some View {
@@ -1428,63 +1504,60 @@ struct PopoverDashboardView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 4)
             } else {
-                ScrollView(.vertical, showsIndicators: monitor.installedModels.count > 5) {
-                    VStack(spacing: 5) {
-                        ForEach(monitor.installedModels) { item in
-                            let isActive = monitor.activeModels.contains(where: { $0.name == item.name })
-                            let hint = OllamaMonitor.modelFootprintHint(item)
+                VStack(spacing: 5) {
+                    ForEach(monitor.installedModels) { item in
+                        let isActive = monitor.activeModels.contains(where: { $0.name == item.name })
+                        let hint = OllamaMonitor.modelFootprintHint(item)
 
-                            HStack(spacing: 8) {
-                                ModelBedStateView(isRunning: isActive)
+                        HStack(spacing: 8) {
+                            ModelBedStateView(isRunning: isActive)
 
-                                VStack(alignment: .leading, spacing: 1.5) {
-                                    Text(item.name)
-                                        .font(.system(size: 11.5, weight: isActive ? .bold : .medium, design: .monospaced))
-                                        .lineLimit(1)
-                                    Text(hint)
-                                        .font(.system(size: 9.5))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer()
-
-                                if monitor.busyModelName == item.name {
-                                    ProgressView()
-                                        .controlSize(.mini)
-                                        .padding(.horizontal, 8)
-                                } else if isActive {
-                                    Button("Unload") {
-                                        Task { await monitor.unloadModel(item.name) }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.red.opacity(0.14), in: Capsule())
-                                    .foregroundStyle(.red)
-                                } else {
-                                    Button("Load") {
-                                        Task { await monitor.warmLoadModel(item.name) }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 10, weight: .medium))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.primary.opacity(0.08), in: Capsule())
-                                    .foregroundStyle(.primary)
-                                }
+                            VStack(alignment: .leading, spacing: 1.5) {
+                                Text(item.name)
+                                    .font(.system(size: 11.5, weight: isActive ? .bold : .medium, design: .monospaced))
+                                    .lineLimit(1)
+                                Text(hint)
+                                    .font(.system(size: 9.5))
+                                    .foregroundStyle(.secondary)
                             }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5.5)
-                            .glassCard(
-                                cornerRadius: 8,
-                                tint: isActive ? .green : nil,
-                                tintOpacity: isActive ? 0.08 : 0.0
-                            )
+
+                            Spacer()
+
+                            if monitor.busyModelName == item.name {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .padding(.horizontal, 8)
+                            } else if isActive {
+                                Button("Unload") {
+                                    Task { await monitor.unloadModel(item.name) }
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.red.opacity(0.14), in: Capsule())
+                                .foregroundStyle(.red)
+                            } else {
+                                Button("Load") {
+                                    Task { await monitor.warmLoadModel(item.name) }
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .medium))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.primary.opacity(0.08), in: Capsule())
+                                .foregroundStyle(.primary)
+                            }
                         }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5.5)
+                        .glassCard(
+                            cornerRadius: 8,
+                            tint: isActive ? .green : nil,
+                            tintOpacity: isActive ? 0.08 : 0.0
+                        )
                     }
                 }
-                .frame(maxHeight: monitor.installedModels.count > 5 ? 215 : nil)
             }
         }
     }
@@ -1543,7 +1616,745 @@ struct PopoverDashboardView: View {
     }
 }
 
+
+// MARK: - Antigravity Skills & GitHub Marketplace Component
+
+struct AntigravitySkillItem: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let description: String
+    let type: String
+    let isRemovable: Bool
+    let path: String
+}
+
+struct MarketplaceSkillItem: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let repo: String
+    let url: String
+    let stars: String
+    let author: String
+    let tags: [String]
+    let description: String
+}
+
+final class SkillsManager: ObservableObject {
+    @Published var installedSkills: [AntigravitySkillItem] = []
+    @Published var selectedTab: Int = 0
+    @Published var isWorking: Bool = false
+    @Published var actionMessage: String? = nil
+
+    static let shared = SkillsManager()
+
+    let catalog: [MarketplaceSkillItem] = [
+        MarketplaceSkillItem(
+            id: "ponytail",
+            name: "Ponytail (Lazy Senior Dev)",
+            repo: "DietrichGebert/ponytail",
+            url: "https://github.com/DietrichGebert/ponytail",
+            stars: "1.2k★",
+            author: "Dietrich Gebert",
+            tags: ["Optimization", "Minimal Diff"],
+            description: "Forces minimal code diffs, zero package bloat, standard libraries first."
+        ),
+        MarketplaceSkillItem(
+            id: "floorplan",
+            name: "Floorplan Codebase Map",
+            repo: "haydenschmitty/floorplan",
+            url: "https://github.com/haydenschmitty/floorplan",
+            stars: "850★",
+            author: "Hayden Smith",
+            tags: ["Visualizer", "Architecture"],
+            description: "Draws an interactive node-graph map of repo imports and HTTP endpoints."
+        ),
+        MarketplaceSkillItem(
+            id: "superpowers",
+            name: "Superpowers Agent Skills",
+            repo: "obra/superpowers",
+            url: "https://github.com/obra/superpowers",
+            stars: "4.8k★",
+            author: "Jesse Vincent",
+            tags: ["Core", "TDD", "Debugging"],
+            description: "Complete agent skills library for systematic debugging, plans, and TDD."
+        ),
+        MarketplaceSkillItem(
+            id: "ui-ux-pro-max",
+            name: "UI/UX Pro Max Skill",
+            repo: "nextlevelbuilder/ui-ux-pro-max-skill",
+            url: "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+            stars: "3.2k★",
+            author: "NextLevelBuilder",
+            tags: ["Design", "UI/UX"],
+            description: "Design system guidance, responsive layouts, micro-interactions, and accessibility."
+        ),
+        MarketplaceSkillItem(
+            id: "claude-mem",
+            name: "Claude Persistent Memory",
+            repo: "thedotmack/claude-mem",
+            url: "https://github.com/thedotmack/claude-mem",
+            stars: "2.8k★",
+            author: "thedotmack",
+            tags: ["Memory", "Vector RAG"],
+            description: "Long-term episodic memory across agent sessions using local embeddings."
+        ),
+        MarketplaceSkillItem(
+            id: "graphify",
+            name: "Graphify Knowledge Graph",
+            repo: "Graphify-Labs/graphify",
+            url: "https://github.com/Graphify-Labs/graphify",
+            stars: "1.9k★",
+            author: "Graphify Labs",
+            tags: ["KnowledgeGraph", "AST"],
+            description: "Extracts code relationships into graph databases for structural code reasoning."
+        ),
+        MarketplaceSkillItem(
+            id: "gstack",
+            name: "GStack Engineering Protocols",
+            repo: "garrytan/gstack",
+            url: "https://github.com/garrytan/gstack",
+            stars: "2.4k★",
+            author: "Garry Tan",
+            tags: ["Engineering", "Startup"],
+            description: "Opinionated agent playbooks for fullstack development and fast iteration."
+        ),
+        MarketplaceSkillItem(
+            id: "impeccable",
+            name: "Impeccable Code Style",
+            repo: "pbakaus/impeccable",
+            url: "https://github.com/pbakaus/impeccable",
+            stars: "1.5k★",
+            author: "Paul Bakaus",
+            tags: ["Linter", "CodeQuality"],
+            description: "High-bar frontend patterns, semantic HTML, and zero unnecessary dependencies."
+        ),
+        MarketplaceSkillItem(
+            id: "open-design",
+            name: "Open Design System",
+            repo: "nexu-io/open-design",
+            url: "https://github.com/nexu-io/open-design",
+            stars: "980★",
+            author: "Nexu",
+            tags: ["DesignTokens", "CSS"],
+            description: "Design tokens and component foundations for modern web and mobile apps."
+        ),
+        MarketplaceSkillItem(
+            id: "awesome-mcp-servers",
+            name: "Awesome MCP Hub",
+            repo: "punkpeye/awesome-mcp-servers",
+            url: "https://github.com/punkpeye/awesome-mcp-servers",
+            stars: "5.1k★",
+            author: "Punkpeye",
+            tags: ["MCP", "Integrations"],
+            description: "Curated catalog and discovery index for Model Context Protocol servers."
+        ),
+        MarketplaceSkillItem(
+            id: "understand-anything",
+            name: "Understand Anything",
+            repo: "Egonex-AI/Understand-Anything",
+            url: "https://github.com/Egonex-AI/Understand-Anything",
+            stars: "1.3k★",
+            author: "Egonex AI",
+            tags: ["Analysis", "ReverseEng"],
+            description: "Deep mental-model extraction for legacy repositories and complex systems."
+        ),
+        MarketplaceSkillItem(
+            id: "omniroute",
+            name: "OmniRoute LLM Router",
+            repo: "cheaper-inference/OmniRoute",
+            url: "https://github.com/cheaper-inference/OmniRoute",
+            stars: "1.1k★",
+            author: "Cheaper Inference",
+            tags: ["Routing", "CostReduction"],
+            description: "Routes user prompts dynamically between small fast and large reasoner LLMs."
+        ),
+        MarketplaceSkillItem(
+            id: "rtk",
+            name: "RTK Agent Toolkit",
+            repo: "rtk-ai/rtk",
+            url: "https://github.com/rtk-ai/rtk",
+            stars: "1.7k★",
+            author: "RTK AI",
+            tags: ["Tools", "Automation"],
+            description: "Collection of command-line tools and helper scripts optimized for agent calls."
+        ),
+        MarketplaceSkillItem(
+            id: "career-ops",
+            name: "CareerOps Developer Workflow",
+            repo: "career-ops-hq/career-ops",
+            url: "https://github.com/career-ops-hq/career-ops",
+            stars: "820★",
+            author: "CareerOps HQ",
+            tags: ["Workflow", "Portfolio"],
+            description: "Automated technical documentation and resume portfolio extraction from Git logs."
+        ),
+        MarketplaceSkillItem(
+            id: "codegraph",
+            name: "CodeGraph Structural Indexer",
+            repo: "colbymchenry/codegraph",
+            url: "https://github.com/colbymchenry/codegraph",
+            stars: "940★",
+            author: "Colby McHenry",
+            tags: ["AST", "Search"],
+            description: "Indexed call graphs and dependency hierarchies across multiple languages."
+        ),
+        MarketplaceSkillItem(
+            id: "claude-code-best-practice",
+            name: "Claude Code Best Practices",
+            repo: "shanraisshan/claude-code-best-practice",
+            url: "https://github.com/shanraisshan/claude-code-best-practice",
+            stars: "2.1k★",
+            author: "Shan Rais",
+            tags: ["BestPractices", "Prompting"],
+            description: "Community-curated system rules and prompt instructions for code agents."
+        ),
+        MarketplaceSkillItem(
+            id: "hindsight",
+            name: "Hindsight Post-Mortem AI",
+            repo: "vectorize-io/hindsight",
+            url: "https://github.com/vectorize-io/hindsight",
+            stars: "1.4k★",
+            author: "Vectorize",
+            tags: ["Observability", "PostMortem"],
+            description: "Synthesizes incident timelines, root causes, and remediation plans from logs."
+        ),
+        MarketplaceSkillItem(
+            id: "ppt-master",
+            name: "PPT Master Presentation Gen",
+            repo: "hugohe3/ppt-master",
+            url: "https://github.com/hugohe3/ppt-master",
+            stars: "3.7k★",
+            author: "Hugo He",
+            tags: ["Presentation", "Markdown"],
+            description: "Generates professional slide decks using Marp and HTML presentation formats."
+        ),
+        MarketplaceSkillItem(
+            id: "ecc-protocols",
+            name: "ECC Engineering Standards",
+            repo: "affaan-m/ECC",
+            url: "https://github.com/affaan-m/ECC",
+            stars: "1.8k★",
+            author: "Affaan Mustafa",
+            tags: ["Standards", "Review"],
+            description: "Automated PR reviews against clean code guidelines and security best practices."
+        ),
+        MarketplaceSkillItem(
+            id: "system-prompts-audit",
+            name: "System Prompts Audit",
+            repo: "asgeirtj/system_prompts_leaks",
+            url: "https://github.com/asgeirtj/system_prompts_leaks",
+            stars: "6.2k★",
+            author: "Asgeir",
+            tags: ["Safety", "RedTeaming"],
+            description: "Comprehensive dataset and audit rules for analyzing LLM system instructions."
+        ),
+    ]
+
+    var sortedCatalog: [MarketplaceSkillItem] {
+        catalog.sorted { a, b in
+            let aInst = isInstalled(a.id)
+            let bInst = isInstalled(b.id)
+            if aInst != bInst {
+                return aInst && !bInst
+            }
+            return parseStars(a.stars) > parseStars(b.stars)
+        }
+    }
+
+    private func parseStars(_ str: String) -> Int {
+        let cleaned = str.replacingOccurrences(of: "★", with: "").trimmingCharacters(in: .whitespaces)
+        if cleaned.hasSuffix("k") {
+            let numStr = cleaned.dropLast()
+            if let val = Double(numStr) {
+                return Int(val * 1000)
+            }
+        }
+        return Int(cleaned) ?? 0
+    }
+
+    init() {
+        refreshSkills()
+    }
+
+    func refreshSkills() {
+        let fm = FileManager.default
+        var items: [AntigravitySkillItem] = []
+
+        // 1. Custom Plugins
+        let pluginsPath = NSString(string: "~/.gemini/config/plugins").expandingTildeInPath
+        if let plugins = try? fm.contentsOfDirectory(atPath: pluginsPath) {
+            for p in plugins.sorted() {
+                let pUrl = URL(fileURLWithPath: pluginsPath).appendingPathComponent(p)
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: pUrl.path, isDirectory: &isDir), isDir.boolValue else { continue }
+
+                var skillUrl = pUrl.appendingPathComponent("skills/\(p)/SKILL.md")
+                if !fm.fileExists(atPath: skillUrl.path) {
+                    let skillsSub = pUrl.appendingPathComponent("skills")
+                    if let subDirs = try? fm.contentsOfDirectory(atPath: skillsSub.path) {
+                        for sub in subDirs {
+                            let cand = skillsSub.appendingPathComponent("\(sub)/SKILL.md")
+                            if fm.fileExists(atPath: cand.path) {
+                                skillUrl = cand
+                                break
+                            }
+                        }
+                    }
+                }
+                if fm.fileExists(atPath: skillUrl.path) {
+                    let (sName, sDesc) = Self.parseSkillFrontmatter(at: skillUrl)
+                    items.append(AntigravitySkillItem(
+                        id: p,
+                        name: sName.isEmpty ? p : sName,
+                        description: sDesc.isEmpty ? "Custom Antigravity plugin skill" : sDesc,
+                        type: "Custom Plugin",
+                        isRemovable: true,
+                        path: pUrl.path
+                    ))
+                } else {
+                    // Plugin without standard skills/ dir or with top-level rules/prompts
+                    items.append(AntigravitySkillItem(
+                        id: p,
+                        name: p,
+                        description: "Custom Antigravity plugin / agent skills pack",
+                        type: "Custom Plugin",
+                        isRemovable: true,
+                        path: pUrl.path
+                    ))
+                }
+            }
+        }
+
+        // 2. Builtin
+        let builtinPaths = [
+            NSString(string: "~/.gemini/antigravity-cli/builtin/skills").expandingTildeInPath,
+            NSString(string: "~/.gemini/antigravity/builtin/skills").expandingTildeInPath
+        ]
+        var seen = Set<String>()
+        for bPath in builtinPaths {
+            guard let list = try? fm.contentsOfDirectory(atPath: bPath) else { continue }
+            for s in list.sorted() {
+                if seen.contains(s) { continue }
+                let sUrl = URL(fileURLWithPath: bPath).appendingPathComponent("\(s)/SKILL.md")
+                if fm.fileExists(atPath: sUrl.path) {
+                    seen.insert(s)
+                    let (sName, sDesc) = Self.parseSkillFrontmatter(at: sUrl)
+                    items.append(AntigravitySkillItem(
+                        id: s,
+                        name: sName.isEmpty ? s : sName,
+                        description: sDesc.isEmpty ? "Built-in Antigravity runtime skill" : sDesc,
+                        type: "Built-in",
+                        isRemovable: false,
+                        path: sUrl.deletingLastPathComponent().path
+                    ))
+                }
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.installedSkills = items
+        }
+    }
+
+    func isInstalled(_ id: String) -> Bool {
+        installedSkills.contains(where: { $0.id == id })
+    }
+
+    func installSkill(id: String) {
+        guard let item = catalog.first(where: { $0.id == id }) else { return }
+        isWorking = true
+        actionMessage = "Installing \(item.name)..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = NSString(string: "~/.gemini/config/plugins/\(id)").expandingTildeInPath
+            try? FileManager.default.createDirectory(atPath: dest, withIntermediateDirectories: true)
+            
+            // Try downloading from main or master branch tarball
+            let script = """
+            dest='\(dest)'
+            repo='\(item.repo)'
+            url_main="https://github.com/${repo}/archive/refs/heads/main.tar.gz"
+            url_master="https://github.com/${repo}/archive/refs/heads/master.tar.gz"
+
+            if curl -sL --fail "$url_main" | tar -xz -C "$dest" --strip-components=1 2>/dev/null; then
+                exit 0
+            elif curl -sL --fail "$url_master" | tar -xz -C "$dest" --strip-components=1 2>/dev/null; then
+                exit 0
+            else
+                exit 1
+            fi
+            """
+
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/sh")
+            proc.arguments = ["-c", script]
+            try? proc.run()
+            proc.waitUntilExit()
+            let status = proc.terminationStatus
+
+            DispatchQueue.main.async {
+                self.isWorking = false
+                if status == 0 {
+                    self.actionMessage = "Installed \(item.name)!"
+                } else {
+                    try? FileManager.default.removeItem(atPath: dest)
+                    self.actionMessage = "Failed to install \(item.name)"
+                }
+                self.refreshSkills()
+            }
+        }
+    }
+
+    func removeSkill(id: String) {
+        guard let item = installedSkills.first(where: { $0.id == id && $0.isRemovable }) else { return }
+        isWorking = true
+        actionMessage = "Removing \(item.name)..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = NSString(string: "~/.gemini/config/plugins/\(id)").expandingTildeInPath
+            try? FileManager.default.removeItem(atPath: dest)
+
+            DispatchQueue.main.async {
+                self.isWorking = false
+                self.actionMessage = "Removed \(item.name)"
+                self.refreshSkills()
+            }
+        }
+    }
+
+    private static func parseSkillFrontmatter(at url: URL) -> (name: String, desc: String) {
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return (url.deletingLastPathComponent().lastPathComponent, "")
+        }
+        let lines = content.components(separatedBy: .newlines)
+        var inFM = false
+        var name = url.deletingLastPathComponent().lastPathComponent
+        var descLines: [String] = []
+        var inDesc = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" {
+                if !inFM {
+                    inFM = true
+                    continue
+                } else {
+                    break
+                }
+            }
+            if inFM {
+                if trimmed.hasPrefix("name:") {
+                    let parts = trimmed.components(separatedBy: "name:")
+                    if parts.count > 1 {
+                        name = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+                    }
+                    inDesc = false
+                } else if trimmed.hasPrefix("description:") {
+                    let val = trimmed.replacingOccurrences(of: "description:", with: "").trimmingCharacters(in: .whitespaces)
+                    if val == ">" || val == ">-" || val == "|" || val == "|-" {
+                        inDesc = true
+                    } else {
+                        descLines = [val.trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))]
+                        inDesc = false
+                    }
+                } else if inDesc {
+                    if line.hasPrefix(" ") || line.hasPrefix("\t") {
+                        descLines.append(trimmed)
+                    } else {
+                        inDesc = false
+                    }
+                }
+            }
+        }
+        return (name, descLines.joined(separator: " "))
+    }
+}
+
+
+struct SkillsDashboardView: View {
+    @ObservedObject var skillsMgr = SkillsManager.shared
+    @Namespace private var subTabGlassNamespace
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            // Header & Sub-Tab Capsule Selector
+            HStack(alignment: .center) {
+                sectionHeader(title: "Antigravity Skills", icon: "sparkles")
+
+                Button {
+                    skillsMgr.refreshSkills()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(4)
+                        .background(Color.primary.opacity(0.06), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Refresh skills and status")
+
+                Spacer()
+
+                // Nested Liquid Glass Mini-Capsule Selector
+                GlassEffectContainer {
+                    HStack(spacing: 3) {
+                        subTabPill(index: 0, label: "Installed (\(skillsMgr.installedSkills.count))", icon: "square.grid.2x2.fill")
+                        subTabPill(index: 1, label: "Marketplace", icon: "cart.fill")
+                    }
+                    .padding(3)
+                    .glassEffect(.regular, in: .capsule)
+                }
+            }
+
+            if let msg = skillsMgr.actionMessage {
+                HStack(spacing: 5) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.teal)
+                        .font(.system(size: 10))
+                    Text(msg)
+                        .font(.system(size: 9.5, weight: .medium))
+                    Spacer()
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 7))
+            }
+
+            if skillsMgr.selectedTab == 0 {
+                installedList
+            } else {
+                marketplaceList
+            }
+        }
+    }
+
+    private func subTabPill(index: Int, label: String, icon: String) -> some View {
+        let isSelected = skillsMgr.selectedTab == index
+        return Button {
+            withAnimation(.snappy(duration: 0.25, extraBounce: 0.05)) {
+                skillsMgr.selectedTab = index
+            }
+        } label: {
+            HStack(spacing: 3.5) {
+                Image(systemName: icon)
+                    .font(.system(size: 9, weight: isSelected ? .bold : .medium))
+                Text(label)
+                    .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium))
+            }
+            .foregroundStyle(isSelected ? Color.white : Color.secondary)
+            .padding(.horizontal, isSelected ? 8 : 6)
+            .padding(.vertical, 3.5)
+            .contentShape(Capsule())
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.teal.opacity(0.85))
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .matchedGeometryEffect(id: "activeSubTabPill", in: subTabGlassNamespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var installedList: some View {
+        ScrollView(.vertical, showsIndicators: skillsMgr.installedSkills.count > 4) {
+            VStack(spacing: 5) {
+                ForEach(skillsMgr.installedSkills) { skill in
+                    HStack(spacing: 7) {
+                        ZStack {
+                            Circle()
+                                .fill(skill.isRemovable ? Color.green.opacity(0.18) : Color.blue.opacity(0.18))
+                                .frame(width: 20, height: 20)
+                            Image(systemName: skill.isRemovable ? "puzzlepiece.extension.fill" : "lock.fill")
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(skill.isRemovable ? Color.green : Color.blue)
+                        }
+
+                        VStack(alignment: .leading, spacing: 1.5) {
+                            HStack(spacing: 4) {
+                                Text(skill.name)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(skill.type)
+                                    .font(.system(size: 8.5, weight: .medium))
+                                    .foregroundStyle(skill.isRemovable ? Color.green : Color.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3.5))
+                            }
+                            Text(skill.description)
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        if skill.isRemovable {
+                            Button {
+                                skillsMgr.removeSkill(id: skill.id)
+                            } label: {
+                                Text("Remove")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.red.opacity(0.12), in: .capsule)
+                                    .glassEffect(.regular.interactive(), in: .capsule)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(skillsMgr.isWorking)
+                        } else {
+                            Text("Built-in")
+                                .font(.system(size: 8.5, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.primary.opacity(0.05), in: Capsule())
+                        }
+                    }
+                    .padding(8)
+                    // Liquid Glass card styling
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .frame(maxHeight: .infinity)
+    }
+
+    private var marketplaceList: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 6) {
+                ForEach(skillsMgr.sortedCatalog) { item in
+                    let isInst = skillsMgr.isInstalled(item.id)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .center, spacing: 6) {
+                            Text(item.name)
+                                .font(.system(size: 11, weight: .bold))
+                            Text(item.stars)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.orange)
+                            Spacer()
+
+                            if isInst {
+                                HStack(spacing: 2.5) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 7.5, weight: .bold))
+                                    Text("Active")
+                                        .font(.system(size: 8.5, weight: .semibold))
+                                }
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2.5)
+                                .background(Color.green.opacity(0.14), in: .capsule)
+                                .glassEffect(.regular, in: .capsule)
+                            } else {
+                                Button {
+                                    skillsMgr.installSkill(id: item.id)
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .font(.system(size: 8.5))
+                                        Text("Install")
+                                            .font(.system(size: 9, weight: .semibold))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3.5)
+                                    .background(Color.teal.opacity(0.85), in: .capsule)
+                                    .glassEffect(.regular.interactive(), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(skillsMgr.isWorking)
+                            }
+                        }
+
+                        Text(item.description)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+
+                        HStack(spacing: 4) {
+                            ForEach(item.tags, id: \.self) { tag in
+                                Text(tag)
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 3))
+                            }
+                            Spacer()
+                            Button {
+                                if let url = URL(string: item.url) {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } label: {
+                                HStack(spacing: 2.5) {
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.system(size: 8))
+                                    Text(item.repo)
+                                        .font(.system(size: 8, design: .monospaced))
+                                }
+                                .foregroundStyle(.teal)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open repository on GitHub")
+                        }
+                    }
+                    .padding(8)
+                    // Liquid Glass card styling
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
+                }
+
+                // Show more on GitHub footer banner
+                Button {
+                    if let url = URL(string: "https://github.com/search?q=antigravity+skill+OR+claude-skill&type=repositories") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "safari")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Show More Skills on GitHub…")
+                            .font(.system(size: 10, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .frame(maxHeight: .infinity)
+    }
+
+    private func sectionHeader(title: String, icon: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+
 // MARK: - Custom Control-Center Style Panel & Hosting View
+
+final class FlippedVisualEffectView: NSVisualEffectView {
+    override var isFlipped: Bool { true }
+}
 
 final class PinnedTopHostingView<Content: View>: NSHostingView<Content> {
     var onSizeInvalidated: (() -> Void)?
@@ -1574,7 +2385,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var panel: MenuBarPanel!
     private var hostingView: PinnedTopHostingView<PopoverDashboardView>!
-    private var effectView: NSVisualEffectView!
+    private var effectView: FlippedVisualEffectView!
     private var monitor: OllamaMonitor!
     private var lastVisualState: MenuBarVisualState?
 
@@ -1630,7 +2441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
 
-        effectView = NSVisualEffectView()
+        effectView = FlippedVisualEffectView()
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active
@@ -1696,7 +2507,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func captureScreenshotNotification(_ sender: AnyObject?) {
-        guard let targetView = effectView else { return }
+        guard effectView != nil else { return }
         if !panel.isVisible {
             openPanelBelowMenuBar()
         }

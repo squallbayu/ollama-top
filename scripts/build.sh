@@ -8,7 +8,7 @@ REPO_ROOT="${0:A:h:h}"
 DIST_DIR="$REPO_ROOT/dist"
 UNIVERSAL=false
 PACKAGE=false
-VERSION="1.0.0"
+VERSION="1.2.0"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -44,38 +44,22 @@ rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 echo "==> Generating macOS squircle AppIcon.icns..."
-swift "$REPO_ROOT/menubar/make_icon.swift" "$TMP_BUILD/AppIcon.iconset"
+export DEVELOPER_DIR="/Library/Developer/CommandLineTools"
+SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX27.2.sdk"
+if [[ ! -d "$SDK_PATH" ]]; then
+    SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+fi
+
+/Library/Developer/CommandLineTools/usr/bin/swift -sdk "$SDK_PATH" "$REPO_ROOT/menubar/make_icon.swift" "$TMP_BUILD/AppIcon.iconset"
 iconutil -c icns "$TMP_BUILD/AppIcon.iconset" -o "$RESOURCES_DIR/AppIcon.icns"
 
-if [[ "$UNIVERSAL" == "true" ]]; then
-    echo "==> Compiling arm64 slice (macOS 13.0+)..."
-    swiftc -O -swift-version 5 -parse-as-library \
-        -target arm64-apple-macos13.0 \
-        -framework AppKit -framework SwiftUI \
-        "$REPO_ROOT/menubar/OllamaTop.swift" \
-        -o "$TMP_BUILD/OllamaTop-arm64"
-
-    echo "==> Compiling x86_64 slice (macOS 13.0+)..."
-    swiftc -O -swift-version 5 -parse-as-library \
-        -target x86_64-apple-macos13.0 \
-        -framework AppKit -framework SwiftUI \
-        "$REPO_ROOT/menubar/OllamaTop.swift" \
-        -o "$TMP_BUILD/OllamaTop-x86_64"
-
-    echo "==> Merging Universal Binary via lipo..."
-    lipo -create -output "$MACOS_DIR/OllamaTop" \
-        "$TMP_BUILD/OllamaTop-arm64" \
-        "$TMP_BUILD/OllamaTop-x86_64"
-    lipo -info "$MACOS_DIR/OllamaTop"
-else
-    ARCH="$(uname -m)"
-    echo "==> Compiling native $ARCH binary (macOS 13.0+)..."
-    swiftc -O -swift-version 5 -parse-as-library \
-        -target "${ARCH}-apple-macos13.0" \
-        -framework AppKit -framework SwiftUI \
-        "$REPO_ROOT/menubar/OllamaTop.swift" \
-        -o "$MACOS_DIR/OllamaTop"
-fi
+ARCH="$(uname -m)"
+echo "==> Compiling native $ARCH binary for Apple Silicon (macOS 13.0+)..."
+/Library/Developer/CommandLineTools/usr/bin/swiftc -O -parse-as-library \
+    -sdk "$SDK_PATH" \
+    -framework AppKit -framework SwiftUI \
+    "$REPO_ROOT/menubar/OllamaTop.swift" \
+    -o "$MACOS_DIR/OllamaTop"
 
 sed "s/<string>1.0.0<\/string>/<string>${VERSION}<\/string>/g" \
     "$REPO_ROOT/menubar/Info.plist" > "$CONTENTS_DIR/Info.plist"
@@ -89,9 +73,6 @@ chmod +x "$DIST_DIR/ollama-top"
 
 if [[ "$PACKAGE" == "true" ]]; then
     SUFFIX="macos-$(uname -m)"
-    if [[ "$UNIVERSAL" == "true" ]]; then
-        SUFFIX="macos-universal"
-    fi
     ZIP_NAME="OllamaTop-v${VERSION}-${SUFFIX}.zip"
     TAR_NAME="ollama-top-cli-v${VERSION}.tar.gz"
 
