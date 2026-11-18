@@ -1034,11 +1034,8 @@ struct PopoverDashboardView: View {
                 }
                 .padding(.bottom, 2)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    SkillsDashboardView()
-                        .padding(.bottom, 2)
-                }
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                SkillsDashboardView()
+                    .padding(.bottom, 2)
             }
 
             if let banner = monitor.statusBanner {
@@ -2186,7 +2183,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 560)
+        .frame(maxHeight: .infinity)
     }
 
     private var marketplaceList: some View {
@@ -2264,7 +2261,7 @@ struct SkillsDashboardView: View {
             .padding(.vertical, 2)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(maxHeight: 560)
+        .frame(maxHeight: .infinity)
     }
 
     private func sectionHeader(title: String, icon: String) -> some View {
