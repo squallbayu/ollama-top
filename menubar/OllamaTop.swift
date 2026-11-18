@@ -467,6 +467,7 @@ final class OllamaMonitor: ObservableObject {
     @Published var lastRequest: String = "-"
 
     @Published var antigravity: AntigravityStats = AntigravityStats()
+    @Published var selectedTab: Int = 0 // 0: Models & System, 1: Skills Hub
 
     @Published var busyModelName: String? = nil
     @Published var isTogglingDaemon: Bool = false
@@ -1019,13 +1020,18 @@ struct PopoverDashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             headerSection
+            topTabBar
             Divider().opacity(0.5)
-            activeVRAMSection
-            memoryAndHardwareSection
-            telemetrySection
-            antigravitySection
-            SkillsDashboardView()
-            installedModelsSection
+
+            if monitor.selectedTab == 0 {
+                activeVRAMSection
+                memoryAndHardwareSection
+                telemetrySection
+                antigravitySection
+                installedModelsSection
+            } else {
+                SkillsDashboardView()
+            }
 
             if let banner = monitor.statusBanner {
                 HStack(spacing: 6) {
@@ -1047,6 +1053,15 @@ struct PopoverDashboardView: View {
         }
         .padding(12)
         .frame(width: 380)
+    }
+
+    private var topTabBar: some View {
+        Picker("", selection: Binding(get: { monitor.selectedTab }, set: { monitor.selectedTab = $0 })) {
+            Label("Models & System", systemImage: "cpu.fill").tag(0)
+            Label("Skills Hub", systemImage: "sparkles").tag(1)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 2)
     }
 
     private var headerSection: some View {
@@ -1898,7 +1913,7 @@ struct SkillsDashboardView: View {
                 }
             }
         }
-        .frame(maxHeight: 120)
+        .frame(maxHeight: 320)
     }
 
     private var marketplaceList: some View {
@@ -1952,7 +1967,7 @@ struct SkillsDashboardView: View {
                 }
             }
         }
-        .frame(maxHeight: 120)
+        .frame(maxHeight: 320)
     }
 
     private func sectionHeader(title: String, icon: String) -> some View {
