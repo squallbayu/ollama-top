@@ -1059,7 +1059,8 @@ struct PopoverDashboardView: View {
             footerSection
         }
         .padding(10)
-        .frame(width: 385, height: 730)
+        .frame(width: 385)
+        .frame(minHeight: monitor.selectedTab == 0 ? nil : 600)
     }
 
     private var liquidGlassTabBar: some View {
@@ -2351,6 +2352,10 @@ struct SkillsDashboardView: View {
 
 // MARK: - Custom Control-Center Style Panel & Hosting View
 
+final class FlippedVisualEffectView: NSVisualEffectView {
+    override var isFlipped: Bool { true }
+}
+
 final class PinnedTopHostingView<Content: View>: NSHostingView<Content> {
     var onSizeInvalidated: (() -> Void)?
 
@@ -2380,7 +2385,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var panel: MenuBarPanel!
     private var hostingView: PinnedTopHostingView<PopoverDashboardView>!
-    private var effectView: NSVisualEffectView!
+    private var effectView: FlippedVisualEffectView!
     private var monitor: OllamaMonitor!
     private var lastVisualState: MenuBarVisualState?
 
@@ -2436,7 +2441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
 
-        effectView = NSVisualEffectView()
+        effectView = FlippedVisualEffectView()
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active
