@@ -1016,22 +1016,29 @@ struct ModelBedStateView: View {
 
 struct PopoverDashboardView: View {
     @ObservedObject var monitor: OllamaMonitor
+    @Namespace private var tabGlassNamespace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             headerSection
-            topTabBar
-            Divider().opacity(0.5)
+            liquidGlassTabBar
+            Divider().opacity(0.4)
 
-            if monitor.selectedTab == 0 {
-                activeVRAMSection
-                memoryAndHardwareSection
-                telemetrySection
-                antigravitySection
-                installedModelsSection
-            } else {
-                SkillsDashboardView()
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if monitor.selectedTab == 0 {
+                        activeVRAMSection
+                        memoryAndHardwareSection
+                        telemetrySection
+                        antigravitySection
+                        installedModelsSection
+                    } else {
+                        SkillsDashboardView()
+                    }
+                }
+                .padding(.bottom, 2)
             }
+            .scrollEdgeEffectStyle(.soft, for: .bottom)
 
             if let banner = monitor.statusBanner {
                 HStack(spacing: 6) {
@@ -1048,20 +1055,72 @@ struct PopoverDashboardView: View {
                 .background(Color.green.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
             }
 
-            Divider().opacity(0.5)
+            Divider().opacity(0.4)
             footerSection
         }
         .padding(12)
-        .frame(width: 380)
+        .frame(width: 380, height: 500)
     }
 
-    private var topTabBar: some View {
-        Picker("", selection: Binding(get: { monitor.selectedTab }, set: { monitor.selectedTab = $0 })) {
-            Label("Models & System", systemImage: "cpu.fill").tag(0)
-            Label("Skills Hub", systemImage: "sparkles").tag(1)
+    private var liquidGlassTabBar: some View {
+        // GlassEffectContainer defines a shared glass sampling region
+        // to prevent double-refraction and specular highlight clipping
+        GlassEffectContainer {
+            HStack(spacing: 6) {
+                liquidTabItem(
+                    index: 0,
+                    label: "Models & System",
+                    icon: "cpu.fill"
+                )
+
+                liquidTabItem(
+                    index: 1,
+                    label: "Skills Hub",
+                    icon: "sparkles"
+                )
+            }
+            .padding(4)
+            // Outer shared Liquid Glass capsule container
+            .glassEffect(.regular, in: .capsule)
         }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 2)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func liquidTabItem(index: Int, label: String, icon: String) -> some View {
+        let isSelected = monitor.selectedTab == index
+
+        return Button {
+            withAnimation(.snappy(duration: 0.28, extraBounce: 0.06)) {
+                monitor.selectedTab = index
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
+
+                if isSelected {
+                    Text(label)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+            }
+            .padding(.horizontal, isSelected ? 12 : 9)
+            .padding(.vertical, 5.5)
+            .contentShape(Capsule())
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.teal.opacity(0.85))
+                        // .interactive() provides hover tracking & specular reflections
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .matchedGeometryEffect(id: "activeLiquidTab", in: tabGlassNamespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var headerSection: some View {
