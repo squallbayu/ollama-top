@@ -1025,18 +1025,22 @@ struct PopoverDashboardView: View {
             Divider().opacity(0.4)
 
             if monitor.selectedTab == 0 {
-                VStack(alignment: .leading, spacing: 8) {
-                    activeVRAMSection
-                    memoryAndHardwareSection
-                    telemetrySection
-                    antigravitySection
-                    installedModelsSection
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        activeVRAMSection
+                        memoryAndHardwareSection
+                        telemetrySection
+                        antigravitySection
+                        installedModelsSection
+                    }
+                    .padding(.bottom, 2)
                 }
-                .padding(.bottom, 2)
-                Spacer(minLength: 0)
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .frame(maxHeight: .infinity)
             } else {
                 SkillsDashboardView()
                     .padding(.bottom, 2)
+                    .frame(maxHeight: .infinity)
             }
 
             if let banner = monitor.statusBanner {
@@ -1058,7 +1062,7 @@ struct PopoverDashboardView: View {
             footerSection
         }
         .padding(12)
-        .frame(width: 385, height: 860)
+        .frame(width: 385, height: 620)
     }
 
     private var liquidGlassTabBar: some View {
