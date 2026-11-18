@@ -1886,21 +1886,27 @@ final class SkillsManager: ObservableObject {
     }
 }
 
+
 struct SkillsDashboardView: View {
     @ObservedObject var skillsMgr = SkillsManager.shared
+    @Namespace private var subTabGlassNamespace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
+        VStack(alignment: .leading, spacing: 7) {
+            // Header & Sub-Tab Capsule Selector
+            HStack(alignment: .center) {
                 sectionHeader(title: "Antigravity Skills", icon: "sparkles")
                 Spacer()
 
-                Picker("", selection: $skillsMgr.selectedTab) {
-                    Text("Installed (\(skillsMgr.installedSkills.count))").tag(0)
-                    Text("Marketplace").tag(1)
+                // Nested Liquid Glass Mini-Capsule Selector
+                GlassEffectContainer {
+                    HStack(spacing: 3) {
+                        subTabPill(index: 0, label: "Installed (\(skillsMgr.installedSkills.count))", icon: "square.grid.2x2.fill")
+                        subTabPill(index: 1, label: "Marketplace", icon: "cart.fill")
+                    }
+                    .padding(3)
+                    .glassEffect(.regular, in: .capsule)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 160)
             }
 
             if let msg = skillsMgr.actionMessage {
@@ -1912,9 +1918,9 @@ struct SkillsDashboardView: View {
                         .font(.system(size: 9.5, weight: .medium))
                     Spacer()
                 }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3.5)
-                .background(Color.teal.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 7))
             }
 
             if skillsMgr.selectedTab == 0 {
@@ -1925,26 +1931,59 @@ struct SkillsDashboardView: View {
         }
     }
 
+    private func subTabPill(index: Int, label: String, icon: String) -> some View {
+        let isSelected = skillsMgr.selectedTab == index
+        return Button {
+            withAnimation(.snappy(duration: 0.25, extraBounce: 0.05)) {
+                skillsMgr.selectedTab = index
+            }
+        } label: {
+            HStack(spacing: 3.5) {
+                Image(systemName: icon)
+                    .font(.system(size: 9, weight: isSelected ? .bold : .medium))
+                Text(label)
+                    .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium))
+            }
+            .foregroundStyle(isSelected ? Color.white : Color.secondary)
+            .padding(.horizontal, isSelected ? 8 : 6)
+            .padding(.vertical, 3.5)
+            .contentShape(Capsule())
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.teal.opacity(0.85))
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .matchedGeometryEffect(id: "activeSubTabPill", in: subTabGlassNamespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private var installedList: some View {
         ScrollView(.vertical, showsIndicators: skillsMgr.installedSkills.count > 4) {
             VStack(spacing: 5) {
                 ForEach(skillsMgr.installedSkills) { skill in
-                    HStack(spacing: 6) {
-                        Image(systemName: skill.isRemovable ? "puzzlepiece.extension.fill" : "lock.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(skill.isRemovable ? Color.green : Color.blue)
-                            .frame(width: 14)
+                    HStack(spacing: 7) {
+                        ZStack {
+                            Circle()
+                                .fill(skill.isRemovable ? Color.green.opacity(0.18) : Color.blue.opacity(0.18))
+                                .frame(width: 20, height: 20)
+                            Image(systemName: skill.isRemovable ? "puzzlepiece.extension.fill" : "lock.fill")
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(skill.isRemovable ? Color.green : Color.blue)
+                        }
 
                         VStack(alignment: .leading, spacing: 1.5) {
                             HStack(spacing: 4) {
                                 Text(skill.name)
-                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .font(.system(size: 11, weight: .semibold))
                                 Text(skill.type)
-                                    .font(.system(size: 8.5))
+                                    .font(.system(size: 8.5, weight: .medium))
                                     .foregroundStyle(skill.isRemovable ? Color.green : Color.secondary)
-                                    .padding(.horizontal, 3)
-                                    .padding(.vertical, 0.5)
-                                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3.5))
                             }
                             Text(skill.description)
                                 .font(.system(size: 9.5))
@@ -1955,77 +1994,114 @@ struct SkillsDashboardView: View {
                         Spacer()
 
                         if skill.isRemovable {
-                            Button("Remove") {
+                            Button {
                                 skillsMgr.removeSkill(id: skill.id)
+                            } label: {
+                                Text("Remove")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.red.opacity(0.12), in: .capsule)
+                                    .glassEffect(.regular.interactive(), in: .capsule)
                             }
-                            .font(.system(size: 9.5, weight: .medium))
                             .buttonStyle(.plain)
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2.5)
-                            .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
                             .disabled(skillsMgr.isWorking)
+                        } else {
+                            Text("Built-in")
+                                .font(.system(size: 8.5, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.primary.opacity(0.05), in: Capsule())
                         }
                     }
-                    .padding(6)
-                    .glassCard(cornerRadius: 7)
+                    .padding(8)
+                    // Liquid Glass card styling
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
                 }
             }
+            .padding(.vertical, 2)
         }
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
         .frame(maxHeight: 320)
     }
 
     private var marketplaceList: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            VStack(spacing: 5) {
+            VStack(spacing: 6) {
                 ForEach(skillsMgr.catalog) { item in
                     let isInst = skillsMgr.isInstalled(item.id)
-                    HStack(spacing: 6) {
-                        VStack(alignment: .leading, spacing: 1.5) {
-                            HStack(spacing: 4) {
-                                Text(item.name)
-                                    .font(.system(size: 10.5, weight: .semibold))
-                                Text(item.stars)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .center, spacing: 6) {
+                            Text(item.name)
+                                .font(.system(size: 11, weight: .bold))
+                            Text(item.stars)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.orange)
+                            Spacer()
+
+                            if isInst {
+                                HStack(spacing: 2.5) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 7.5, weight: .bold))
+                                    Text("Active")
+                                        .font(.system(size: 8.5, weight: .semibold))
+                                }
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2.5)
+                                .background(Color.green.opacity(0.14), in: .capsule)
+                                .glassEffect(.regular, in: .capsule)
+                            } else {
+                                Button {
+                                    skillsMgr.installSkill(id: item.id)
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .font(.system(size: 8.5))
+                                        Text("Install")
+                                            .font(.system(size: 9, weight: .semibold))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3.5)
+                                    .background(Color.teal.opacity(0.85), in: .capsule)
+                                    .glassEffect(.regular.interactive(), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(skillsMgr.isWorking)
                             }
-                            Text(item.description)
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
                         }
 
-                        Spacer()
+                        Text(item.description)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
 
-                        if isInst {
-                            HStack(spacing: 2) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 8, weight: .bold))
-                                Text("Active")
-                                    .font(.system(size: 9))
+                        HStack(spacing: 4) {
+                            ForEach(item.tags, id: \.self) { tag in
+                                Text(tag)
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 3))
                             }
-                            .foregroundStyle(.green)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.12), in: Capsule())
-                        } else {
-                            Button("Install") {
-                                skillsMgr.installSkill(id: item.id)
-                            }
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2.5)
-                            .background(Color.teal, in: RoundedRectangle(cornerRadius: 4))
-                            .disabled(skillsMgr.isWorking)
+                            Spacer()
+                            Text(item.repo)
+                                .font(.system(size: 8, design: .monospaced))
+                                .foregroundStyle(.secondary.opacity(0.75))
                         }
                     }
-                    .padding(6)
-                    .glassCard(cornerRadius: 7)
+                    .padding(8)
+                    // Liquid Glass card styling
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
                 }
             }
+            .padding(.vertical, 2)
         }
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
         .frame(maxHeight: 320)
     }
 
