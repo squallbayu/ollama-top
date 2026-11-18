@@ -1033,6 +1033,7 @@ struct PopoverDashboardView: View {
                     installedModelsSection
                 }
                 .padding(.bottom, 2)
+                Spacer(minLength: 0)
             } else {
                 SkillsDashboardView()
                     .padding(.bottom, 2)
