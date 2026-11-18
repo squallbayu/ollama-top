@@ -2078,6 +2078,19 @@ struct SkillsDashboardView: View {
             // Header & Sub-Tab Capsule Selector
             HStack(alignment: .center) {
                 sectionHeader(title: "Antigravity Skills", icon: "sparkles")
+
+                Button {
+                    skillsMgr.refreshSkills()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(4)
+                        .background(Color.primary.opacity(0.06), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Refresh skills and status")
+
                 Spacer()
 
                 // Nested Liquid Glass Mini-Capsule Selector
@@ -2271,15 +2284,50 @@ struct SkillsDashboardView: View {
                                     .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 3))
                             }
                             Spacer()
-                            Text(item.repo)
-                                .font(.system(size: 8, design: .monospaced))
-                                .foregroundStyle(.secondary.opacity(0.75))
+                            Button {
+                                if let url = URL(string: item.url) {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } label: {
+                                HStack(spacing: 2.5) {
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.system(size: 8))
+                                    Text(item.repo)
+                                        .font(.system(size: 8, design: .monospaced))
+                                }
+                                .foregroundStyle(.teal)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open repository on GitHub")
                         }
                     }
                     .padding(8)
                     // Liquid Glass card styling
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
                 }
+
+                // Show more on GitHub footer banner
+                Button {
+                    if let url = URL(string: "https://github.com/search?q=antigravity+skill+OR+claude-skill&type=repositories") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "safari")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Show More Skills on GitHub…")
+                            .font(.system(size: 10, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
             .padding(.vertical, 2)
         }
