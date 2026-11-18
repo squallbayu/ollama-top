@@ -1848,6 +1848,28 @@ final class SkillsManager: ObservableObject {
         ),
     ]
 
+    var sortedCatalog: [MarketplaceSkillItem] {
+        catalog.sorted { a, b in
+            let aInst = isInstalled(a.id)
+            let bInst = isInstalled(b.id)
+            if aInst != bInst {
+                return aInst && !bInst
+            }
+            return parseStars(a.stars) > parseStars(b.stars)
+        }
+    }
+
+    private func parseStars(_ str: String) -> Int {
+        let cleaned = str.replacingOccurrences(of: "★", with: "").trimmingCharacters(in: .whitespaces)
+        if cleaned.hasSuffix("k") {
+            let numStr = cleaned.dropLast()
+            if let val = Double(numStr) {
+                return Int(val * 1000)
+            }
+        }
+        return Int(cleaned) ?? 0
+    }
+
     init() {
         refreshSkills()
     }
@@ -2190,7 +2212,7 @@ struct SkillsDashboardView: View {
     private var marketplaceList: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(spacing: 6) {
-                ForEach(skillsMgr.catalog) { item in
+                ForEach(skillsMgr.sortedCatalog) { item in
                     let isInst = skillsMgr.isInstalled(item.id)
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .center, spacing: 6) {
